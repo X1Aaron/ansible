@@ -9,25 +9,17 @@
         state: disabled
       ignore_errors: yes
 
+    - name: Check if SSH backup exists
+      stat:
+        path: /etc/ssh/sshd_config.backup
+      register: ssh_backup
+
     - name: Restore SSH config from backup
       copy:
         src: /etc/ssh/sshd_config.backup
         dest: /etc/ssh/sshd_config
         remote_src: yes
         backup: yes
-      when: ansible_facts.stat is defined and ansible_facts.stat.exists
-      ignore_errors: yes
-
-    - name: Check if SSH backup exists
-      stat:
-        path: /etc/ssh/sshd_config.backup
-      register: ssh_backup
-
-    - name: Restore SSH config
-      copy:
-        src: /etc/ssh/sshd_config.backup
-        dest: /etc/ssh/sshd_config
-        remote_src: yes
       when: ssh_backup.stat.exists
       ignore_errors: yes
 
