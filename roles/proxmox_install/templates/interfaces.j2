@@ -1,0 +1,27 @@
+# Network interfaces configuration for Proxmox VE
+# This file is managed by Ansible - do not edit manually
+# Generated from proxmox_network_config variable
+
+# Loopback interface
+auto lo
+iface lo inet loopback
+
+# Network interfaces
+{% for interface in proxmox_network_config %}
+{% if interface.method == 'static' %}
+auto {{ interface.interface }}
+iface {{ interface.interface }} inet static
+    address {{ interface.address }}
+    netmask {{ interface.netmask }}
+{% if interface.gateway is defined %}
+    gateway {{ interface.gateway }}
+{% endif %}
+{% if interface.dns_nameservers is defined %}
+    dns-nameservers {{ interface.dns_nameservers | join(' ') }}
+{% endif %}
+{% elif interface.method == 'dhcp' %}
+auto {{ interface.interface }}
+iface {{ interface.interface }} inet dhcp
+{% endif %}
+{% endfor %}
+
