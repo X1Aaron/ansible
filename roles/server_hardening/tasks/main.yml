@@ -285,6 +285,24 @@
         - item != "OpenSSH"  # Already allowed above
       ignore_errors: yes
 
+    - name: Allow SSH in firewalld BEFORE starting (CRITICAL)
+      firewalld:
+        port: "{{ hardening_ssh_port | default('22') }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_os_family == "RedHat"
+      failed_when: false
+
+    - name: Allow SSH service in firewalld as backup
+      firewalld:
+        service: ssh
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_os_family == "RedHat"
+      failed_when: false
+
     - name: Start and enable firewalld (RHEL/CentOS)
       systemd:
         name: firewalld
