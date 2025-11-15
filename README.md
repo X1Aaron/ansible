@@ -209,6 +209,36 @@ The key is automatically added to `~/.ssh/authorized_keys`.
 
 Automate server security hardening using industry best practices.
 
+#### ⚠️ IMPORTANT: Lockout Prevention Checklist
+
+**Before running the hardening playbook, verify:**
+
+1. ✅ **SSH Key Authentication Works:**
+   ```bash
+   # Test that you can SSH with your key (no password prompt)
+   ssh -i ~/.ssh/your_key your_user@your_server
+   ```
+
+2. ✅ **You're NOT logging in as root:**
+   - The playbook disables root SSH login by default
+   - Make sure you have a regular user with sudo access
+   - Run the user-management playbook first if needed
+
+3. ✅ **Your user has SSH keys configured:**
+   - Check: `cat ~/.ssh/authorized_keys` (should have your public key)
+   - If not, add your key via the user-management playbook first
+
+4. ✅ **Firewall won't block you:**
+   - If changing SSH port, update firewall rules BEFORE running
+   - Keep current SSH session open as backup
+
+5. ✅ **You have console/out-of-band access:**
+   - VPS: Use provider's web console
+   - Physical: Have physical access
+   - Cloud: Keep console access enabled
+
+**If any of the above fail, DO NOT run the hardening playbook yet!**
+
 #### Quick Start
 
 1. **Create your hardening configuration:**
@@ -217,10 +247,14 @@ Automate server security hardening using industry best practices.
    nano vars/hardening.local.yml
    ```
 
-2. **Run the playbook:**
+2. **Review settings** - especially SSH and firewall configurations
+
+3. **Run the playbook:**
    ```bash
    ansible-playbook playbooks/server-hardening.yml
    ```
+
+4. **Keep your current SSH session open** until you verify you can reconnect
 
 #### What It Does
 

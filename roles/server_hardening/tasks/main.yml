@@ -1,4 +1,45 @@
 ---
+- name: Pre-flight safety checks
+  when: hardening_ssh_harden | default(true) and (hardening_ssh_password_auth | default("no")) == "no"
+  block:
+    - name: Check if current user has SSH key authentication
+      stat:
+        path: "{{ ansible_env.HOME }}/.ssh/authorized_keys"
+      register: user_ssh_keys
+      failed_when: false
+
+    - name: Warn if no SSH keys found and password auth will be disabled
+      debug:
+        msg: |
+          ⚠️  WARNING: Password authentication will be DISABLED, but no SSH keys found for user '{{ ansible_user_id }}'!
+          
+          This could LOCK YOU OUT of the server!
+          
+          Before continuing:
+          1. Make sure you have SSH keys configured: cat ~/.ssh/authorized_keys
+          2. Test SSH key login from another terminal
+          3. Have console/out-of-band access available
+          4. Keep this SSH session open until you verify you can reconnect
+          
+          If unsure, set hardening_ssh_password_auth: "yes" in vars/hardening.local.yml
+        verbosity: 0
+      when: not user_ssh_keys.stat.exists or user_ssh_keys.stat.size == 0
+
+    - name: Fail if root user and root login will be disabled
+      fail:
+        msg: |
+          ⚠️  ERROR: You are logged in as root, but hardening will DISABLE root SSH login!
+          
+          This will LOCK YOU OUT!
+          
+          Solution:
+          1. Create a regular user with sudo access first (run user-management playbook)
+          2. Add your SSH key to that user
+          3. Then run this hardening playbook
+      when: 
+        - ansible_user_id == "root"
+        - (hardening_ssh_permit_root_login | default("no")) == "no"
+
 - name: Update system packages
   when: hardening_update_packages | default(true)
   block:
