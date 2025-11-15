@@ -64,6 +64,54 @@
         - login_user == "root"
         - (hardening_ssh_permit_root_login | default("no")) == "no"
 
+- name: Detect OS family
+  block:
+    - name: Detect OS family
+      shell: |
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          case "$ID" in
+            ubuntu|debian)
+              echo "Debian"
+              ;;
+            rhel|centos|fedora|rocky|almalinux)
+              echo "RedHat"
+              ;;
+            *)
+              echo "Unknown"
+              ;;
+          esac
+        elif [ -f /etc/redhat-release ]; then
+          echo "RedHat"
+        elif [ -f /etc/debian_version ]; then
+          echo "Debian"
+        else
+          echo "Unknown"
+        fi
+      register: os_family_result
+      changed_when: false
+      failed_when: false
+
+    - name: Detect package manager
+      shell: |
+        if command -v apt >/dev/null 2>&1; then
+          echo "apt"
+        elif command -v yum >/dev/null 2>&1; then
+          echo "yum"
+        elif command -v dnf >/dev/null 2>&1; then
+          echo "dnf"
+        else
+          echo "unknown"
+        fi
+      register: pkg_mgr_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set OS family and package manager facts
+      set_fact:
+        ansible_os_family: "{{ os_family_result.stdout }}"
+        ansible_pkg_mgr: "{{ pkg_mgr_result.stdout }}"
+
 - name: Update system packages
   when: hardening_update_packages | default(true)
   block:
