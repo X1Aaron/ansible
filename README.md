@@ -48,11 +48,11 @@ For detailed instructions on automated syncing, cron jobs, and best practices, s
 
 **On your server:**
 1. Clone the repository: `git clone https://github.com/X1Aaron/ansible.git && cd ansible`
-2. Create local config: `cp vars/users.local.yml.example vars/users.local.yml`
-3. Edit users: `nano vars/users.local.yml`
+2. Create your user file: `cp vars/users.local.yml.example vars/users.local.yml`
+3. Edit users: `nano vars/users.local.yml` (put ALL your users, passwords, SSH keys here)
 4. Run playbook: `ansible-playbook playbooks/user-management.yml -e "user_action=create"`
 
-See [SIMPLE_GUIDE.md](SIMPLE_GUIDE.md) for a simple step-by-step guide.
+**That's it!** Everything goes in one file: `vars/users.local.yml` - it's the only file you need to edit.
 
 ## Prerequisites
 
@@ -83,14 +83,14 @@ brew install ansible
 
 ### 1. Create Users
 
-**On your server**, create and edit the local override file (this won't be overwritten on sync):
+**On your server**, create and edit your user file (this is the ONLY file you need to edit):
 
 ```bash
 cp vars/users.local.yml.example vars/users.local.yml
 nano vars/users.local.yml
 ```
 
-Then define users under `users_to_create`:
+Define all your users, passwords, and SSH keys in this one file:
 
 ```yaml
 users_to_create:

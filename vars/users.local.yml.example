@@ -1,0 +1,42 @@
+---
+# User Management Variables
+# 
+# This is YOUR file - edit this with your actual users!
+# 
+# This file is NOT tracked in git and will never be overwritten.
+# 
+# To get started, copy this file:
+#   cp vars/users.local.yml.example vars/users.local.yml
+#   nano vars/users.local.yml
+
+# Users to create
+users_to_create:
+  - name: my_user
+    groups: ['sudo']
+    shell: /bin/bash
+    comment: "My user"
+    create_home: true
+    # Your SSH public key (get it with: cat ~/.ssh/id_rsa.pub)
+    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-key-here"
+    # Password hash (optional - generate with: python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))")
+    # password: "$6$rounds=656000$salt$hashed_password_here"
+    password_lock: false
+
+# Users to modify (if they already exist)
+users_to_modify:
+  # - name: existing_user
+  #   groups: ['sudo', 'docker']
+  #   append: true
+  #   shell: /bin/zsh
+  #   comment: "Updated comment"
+  #   ssh_public_key: "ssh-rsa AAAAB3..."
+
+# Users to delete
+users_to_delete:
+  # - old_user1
+  # - old_user2
+
+# Options for delete action
+remove_home: false  # Set to true to remove home directory when deleting user
+force_remove: false  # Set to true to force removal even if user is logged in
+

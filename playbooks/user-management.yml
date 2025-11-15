@@ -3,9 +3,8 @@
   hosts: localhost
   become: yes
   vars_files:
-    - ../vars/users.yml
-    # Local overrides (not tracked in git - safe to edit on server)
-    # This file will override values from users.yml if it exists
+    # Load your user definitions from this file
+    # Create it by copying: cp vars/users.yml vars/users.local.yml
     - ../vars/users.local.yml
   
   tasks:
