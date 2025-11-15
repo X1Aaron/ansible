@@ -14,6 +14,8 @@
 # Then uncomment and modify the examples below to configure your users.
 # 
 # ============================================================================
+# END OF HEADER - YOU CAN DELETE EVERYTHING ABOVE THIS LINE AFTER COPYING
+# ============================================================================
 
 # Users - The variables file is the source of truth
 # Users in this list will be created or updated to match

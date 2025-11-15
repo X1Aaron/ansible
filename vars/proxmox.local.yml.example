@@ -15,6 +15,8 @@
 # Then uncomment and modify the examples below to configure Proxmox installation.
 # 
 # ============================================================================
+# END OF HEADER - YOU CAN DELETE EVERYTHING ABOVE THIS LINE AFTER COPYING
+# ============================================================================
 
 # Proxmox release version
 # Options: 'trixie' (Debian 13 - default), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
