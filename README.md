@@ -620,7 +620,7 @@ systemctl enable serial-getty@ttyS0.service
 
 ### Storing Secrets Securely
 
-This repository uses a **git-ignored** file to store sensitive information like passwords.
+This repository includes a file for storing sensitive information like passwords.
 
 **Location:** `vars/secrets.local.yml`
 
