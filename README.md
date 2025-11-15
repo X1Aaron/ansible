@@ -342,9 +342,9 @@ Automate Proxmox VE installation on Debian-based systems.
 
 **Before running the Proxmox installation playbook:**
 
-1. ✅ **Fresh Debian 11 or 12 system:**
+1. ✅ **Fresh Debian 11, 12, or 13 system:**
    - Proxmox VE requires a clean Debian installation
-   - Debian 11 (Bullseye) or Debian 12 (Bookworm) recommended
+   - Debian 11 (Bullseye), Debian 12 (Bookworm), or Debian 13 (Trixie) supported
    - Do NOT run on a system with existing virtualization software
 
 2. ✅ **Adequate hardware:**
@@ -395,7 +395,7 @@ Edit `vars/proxmox.local.yml` to customize:
 
 ```yaml
 # Proxmox release version
-proxmox_release: bookworm  # or 'bullseye' for Debian 11
+proxmox_release: bookworm  # or 'bullseye' for Debian 11, 'trixie' for Debian 13
 
 # Hostname
 proxmox_hostname: pve1.example.com
