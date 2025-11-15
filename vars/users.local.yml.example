@@ -22,30 +22,30 @@
 users:  # REQUIRED: List of users (add user sections below - each user is its own section)
   
   # ============================================================================
-  # User 1 - Example user (uncomment and modify)
+  # User 1 - Example user (modify as needed)
   # ============================================================================
-  # - name: my_user                          # REQUIRED: Username
-  #   groups: ['sudo']                       # OPTIONAL: Groups to add user to (e.g., ['sudo', 'docker'])
-  #   ssh_public_key: "ssh-rsa AAAAB3..."     # RECOMMENDED: Your SSH public key (for secure access)
-  #   sudo_passwordless: true                 # OPTIONAL: Passwordless sudo (only if user is in 'sudo' group)
-  #   password: "$6$..."                     # OPTIONAL: Password hash (only if console login needed)
-  #   comment: "My user"                      # OPTIONAL: User description/GECOS field
+  - name: my_user                          # REQUIRED: Username
+    ssh_public_key: "ssh-rsa AAAAB3..."     # RECOMMENDED: Your SSH public key (for secure access)
+    # groups: ['sudo']                       # OPTIONAL: Groups to add user to (e.g., ['sudo', 'docker'])
+    # sudo_passwordless: true                 # OPTIONAL: Passwordless sudo (only if user is in 'sudo' group)
+    # password: "$6$..."                     # OPTIONAL: Password hash (only if console login needed)
+    # comment: "My user"                      # OPTIONAL: User description/GECOS field
   
   # ============================================================================
-  # User 2 - Add more users by copying the section above and uncommenting
+  # User 2 - Add more users by copying User 1 above and modifying
   # ============================================================================
   # - name: another_user                      # REQUIRED: Username
-  #   groups: ['sudo']                       # OPTIONAL: Groups to add user to
   #   ssh_public_key: "ssh-rsa AAAAB3..."     # RECOMMENDED: Your SSH public key
+  #   groups: ['sudo']                       # OPTIONAL: Groups to add user to
   #   sudo_passwordless: true                 # OPTIONAL: Passwordless sudo
   
   # ============================================================================
-  # User 3 - Keep adding more users below (copy any section above, uncomment, modify)
+  # User 3 - Keep adding more users below (copy User 1, modify)
   # ============================================================================
-  # - name: third_user
-  #   groups: ['sudo']
-  #   ssh_public_key: "ssh-rsa AAAAB3..."
-  #   sudo_passwordless: true
+  # - name: third_user                        # REQUIRED: Username
+  #   ssh_public_key: "ssh-rsa AAAAB3..."     # RECOMMENDED: Your SSH public key
+  #   groups: ['sudo']                       # OPTIONAL: Groups to add user to
+  #   sudo_passwordless: true                 # OPTIONAL: Passwordless sudo
 
 # Options
 remove_orphaned_users: false  # OPTIONAL: Set to true to delete users not in the 'users' list above (default: false)
