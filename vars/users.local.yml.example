@@ -19,7 +19,7 @@
 # END OF HEADER - YOU CAN DELETE EVERYTHING ABOVE THIS LINE AFTER COPYING
 # ============================================================================
 
-users:  # REQUIRED: List of users (add user sections below)
+users:  # REQUIRED: List of users (add user sections below - each user is its own section)
   
   # ============================================================================
   # User 1 - Example user (uncomment and modify)
@@ -32,9 +32,17 @@ users:  # REQUIRED: List of users (add user sections below)
   #   comment: "My user"                      # OPTIONAL: User description/GECOS field
   
   # ============================================================================
-  # User 2 - Add more users below (copy the section above and uncomment)
+  # User 2 - Add more users by copying the section above and uncommenting
   # ============================================================================
-  # - name: another_user
+  # - name: another_user                      # REQUIRED: Username
+  #   groups: ['sudo']                       # OPTIONAL: Groups to add user to
+  #   ssh_public_key: "ssh-rsa AAAAB3..."     # RECOMMENDED: Your SSH public key
+  #   sudo_passwordless: true                 # OPTIONAL: Passwordless sudo
+  
+  # ============================================================================
+  # User 3 - Keep adding more users below (copy any section above, uncomment, modify)
+  # ============================================================================
+  # - name: third_user
   #   groups: ['sudo']
   #   ssh_public_key: "ssh-rsa AAAAB3..."
   #   sudo_passwordless: true
