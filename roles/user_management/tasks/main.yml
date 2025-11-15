@@ -70,7 +70,7 @@
         label: "{{ item.name }}"
       when:
         - item.groups is defined
-        - 'sudo' in item.groups
+        - "'sudo' in item.groups"
       ignore_errors: false
 
     - name: Remove sudoers files for users no longer in sudo group
