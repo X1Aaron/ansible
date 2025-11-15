@@ -112,12 +112,80 @@ exit
 # Then the system will continue normal boot
 ```
 
+## SSH Works in Recovery Mode But Not Normal Boot
+
+If SSH works in recovery mode but not with the regular PVE kernel:
+
+### Check if SSH service is enabled
+```bash
+# In recovery mode:
+mount -o remount,rw /
+
+# Check if SSH is enabled
+systemctl is-enabled ssh
+systemctl is-enabled sshd
+
+# Enable SSH service
+systemctl enable ssh
+systemctl enable sshd
+
+# Check network service
+systemctl is-enabled networking
+systemctl is-enabled NetworkManager
+
+# Enable network service
+systemctl enable networking
+# or
+systemctl enable NetworkManager
+```
+
+### Check network interface
+```bash
+# Check network configuration
+cat /etc/network/interfaces
+
+# Check if network is configured to start on boot
+# Look for "auto" or "allow-hotplug" lines
+```
+
+### Check systemd services
+```bash
+# Check what services are enabled
+systemctl list-unit-files | grep -E 'ssh|network'
+
+# Ensure critical services are enabled
+systemctl enable ssh
+systemctl enable networking
+systemctl enable systemd-networkd  # if using systemd-networkd
+```
+
+### Force enable all network and SSH services
+```bash
+mount -o remount,rw /
+
+# Enable SSH
+systemctl enable ssh
+systemctl enable sshd
+
+# Enable networking (try both)
+systemctl enable networking
+systemctl enable NetworkManager
+systemctl enable systemd-networkd
+
+# Enable systemd-resolved (DNS)
+systemctl enable systemd-resolved
+
+# Exit recovery mode
+exit
+```
+
 ## Common Issues
 
 1. **SSH service not enabled:** The PVE kernel might not have SSH enabled by default
-2. **UFW blocking SSH:** Firewall rules might not have persisted through kernel change
-3. **SSH port changed:** If hardening changed the port, make sure UFW allows that port
-4. **Network interface down:** Network might not be coming up with new kernel
+2. **Network not starting:** Network interface might not be coming up on boot
+3. **UFW blocking SSH:** Firewall rules might not have persisted through kernel change
+4. **SSH port changed:** If hardening changed the port, make sure UFW allows that port
+5. **Systemd service dependencies:** Some services might not be starting due to dependency issues
 
 ## Adding Your IP to the Whitelist (from recovery mode)
 
