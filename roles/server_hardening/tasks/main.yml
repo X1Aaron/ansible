@@ -215,7 +215,56 @@
       when: ansible_os_family == "RedHat"
       ignore_errors: yes
 
-    - name: Configure UFW default policies
+    - name: Get current SSH port from config
+      shell: |
+        grep -E '^Port|^#Port' /etc/ssh/sshd_config | tail -1 | sed 's/^#Port/Port/' | awk '{print $2}'
+      register: ssh_port_result
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Set SSH port fact
+      set_fact:
+        current_ssh_port: "{{ (ssh_port_result.stdout | default('22')) | int }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL)
+      ufw:
+        rule: allow
+        port: "{{ current_ssh_port }}"
+        proto: tcp
+        state: enabled
+      when: ansible_os_family == "Debian"
+      failed_when: false
+
+    - name: Allow SSH service name as backup (if port rule didn't work)
+      ufw:
+        rule: allow
+        name: OpenSSH
+        state: enabled
+      when: ansible_os_family == "Debian"
+      failed_when: false
+
+    - name: Verify SSH is allowed in UFW
+      command: ufw status | grep -E "{{ current_ssh_port }}/tcp|OpenSSH" || echo "SSH_NOT_ALLOWED"
+      register: ufw_ssh_check
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Fail if SSH is not allowed in firewall
+      fail:
+        msg: |
+          ⚠️  CRITICAL: SSH port {{ current_ssh_port }} is NOT allowed in UFW firewall!
+          
+          This would LOCK YOU OUT! Aborting firewall configuration.
+          
+          Please manually allow SSH: sudo ufw allow {{ current_ssh_port }}/tcp
+      when:
+        - ansible_os_family == "Debian"
+        - "SSH_NOT_ALLOWED" in ufw_ssh_check.stdout
+
+    - name: Configure UFW default policies (only after SSH is confirmed allowed)
       ufw:
         state: enabled
         policy: "{{ item.policy }}"
@@ -224,15 +273,16 @@
         - { policy: deny, direction: incoming }
         - { policy: allow, direction: outgoing }
       when: ansible_os_family == "Debian"
-      ignore_errors: yes
 
-    - name: Allow SSH through UFW
+    - name: Allow additional services through UFW
       ufw:
         rule: allow
         name: "{{ item }}"
         state: enabled
-      loop: "{{ hardening_firewall_allowed_services | default(['OpenSSH']) }}"
-      when: ansible_os_family == "Debian"
+      loop: "{{ hardening_firewall_allowed_services | default([]) }}"
+      when: 
+        - ansible_os_family == "Debian"
+        - item != "OpenSSH"  # Already allowed above
       ignore_errors: yes
 
     - name: Start and enable firewalld (RHEL/CentOS)
