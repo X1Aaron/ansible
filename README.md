@@ -113,23 +113,17 @@ Edit `vars/users.local.yml` with your users:
 users:
   - name: alice
     groups: ['sudo']
-    shell: /bin/bash
-    comment: "Alice - Developer"
-    create_home: true
     ssh_public_key: "ssh-rsa AAAAB3... alice@laptop"
-    # Optional: password hash
+    sudo_passwordless: true
+    # Optional: password hash (for console login)
     # password: "$6$rounds=656000$salt$hash"
 
   - name: bob
     groups: ['docker']
-    shell: /bin/bash
-    comment: "Bob - DevOps"
-    create_home: true
     ssh_public_key: "ssh-ed25519 AAAAC3... bob@workstation"
 
 # Options
 remove_orphaned_users: false  # Set to true to delete users not in 'users' list
-remove_home_on_delete: false  # Remove home directory when deleting users
 # Note: System users (UID < 1000) and root are ALWAYS protected from deletion
 ```
 
