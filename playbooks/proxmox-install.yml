@@ -2,20 +2,22 @@
 - name: Proxmox VE Installation Playbook
   hosts: localhost
   become: yes
-  vars_files:
-    # Optional: Load your Proxmox configuration from this file
-    # If this file doesn't exist, defaults will be used (Debian 13/Trixie)
-    # Create it: cp vars/proxmox.local.yml.example vars/proxmox.local.yml
-    # Then edit it with your server-specific Proxmox settings
-    - ../vars/proxmox.local.yml
   
   vars:
-    # Defaults - will be overridden by vars/proxmox.local.yml if it exists
+    # Defaults - Debian 13 (Trixie) by default
+    # Override by creating vars/proxmox.local.yml if needed
     proxmox_release: "{{ proxmox_release | default('trixie') }}"
     proxmox_update_system: "{{ proxmox_update_system | default(true) }}"
     proxmox_install_packages: "{{ proxmox_install_packages | default(true) }}"
     proxmox_configure: "{{ proxmox_configure | default(true) }}"
     proxmox_reboot_after_install: "{{ proxmox_reboot_after_install | default(true) }}"
+  
+  pre_tasks:
+    - name: Load optional configuration file
+      include_vars:
+        file: ../vars/proxmox.local.yml
+      ignore_errors: yes
+      when: proxmox_local_config_file is not defined
   
   roles:
     - role: proxmox_install
