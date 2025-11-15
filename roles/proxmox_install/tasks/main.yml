@@ -417,6 +417,17 @@
       changed_when: false
       failed_when: false
 
+    - name: Detect if running on localhost
+      shell: |
+        if [ "$(hostname)" = "localhost" ] || [ "$(hostname -s)" = "localhost" ] || [ -z "$SSH_CONNECTION" ]; then
+          echo "yes"
+        else
+          echo "no"
+        fi
+      register: is_localhost
+      changed_when: false
+      failed_when: false
+
     - name: Ask user if they want to reboot
       pause:
         prompt: |
@@ -427,9 +438,9 @@
           A reboot is required to complete the Proxmox VE installation.
           
           Do you want to reboot now? (yes/no)
-          {% if ansible_connection == "local" %}
+          {% if is_localhost.stdout == "yes" %}
           
-          Note: Running on localhost - you'll need to reboot manually after answering.
+          Note: Running on localhost - you'll need to reboot manually.
           {% endif %}
           ============================================================================
         echo: yes
@@ -437,21 +448,21 @@
       when: reboot_required.stdout == "yes"
       failed_when: false
 
-    - name: Reboot system (if user confirmed and not localhost)
+    - name: Reboot system (remote only)
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
         connect_timeout: 5
       when: 
         - reboot_required.stdout == "yes"
-        - ansible_connection != "local"
+        - is_localhost.stdout == "no"
         - reboot_prompt.user_input | default('no') | lower == 'yes'
       
-    - name: Skip reboot (user declined or localhost)
+    - name: Remind user to reboot manually
       debug:
         msg: |
           ============================================================================
-          Reboot Skipped
+          Reboot Required
           ============================================================================
           
           Please reboot manually when ready:
@@ -459,7 +470,7 @@
           ============================================================================
       when: 
         - reboot_required.stdout == "yes"
-        - (ansible_connection == "local" or reboot_prompt.user_input | default('no') | lower != 'yes')
+        - (is_localhost.stdout == "yes" or reboot_prompt.user_input | default('no') | lower != 'yes')
 
 - name: Get system hostname
   command: hostname
