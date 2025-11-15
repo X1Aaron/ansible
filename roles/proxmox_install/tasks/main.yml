@@ -102,6 +102,12 @@
 
 - name: Add Proxmox VE repository
   block:
+    # IMPORTANT: We ALWAYS use the community (no-subscription) repository, NOT the enterprise repository
+    # - Repository URL: http://download.proxmox.com/debian/pve (community)
+    # - Component: pve-no-subscription (NOT pve which is enterprise)
+    # - The GPG key is downloaded from enterprise.proxmox.com, but that's just where the keyring file is hosted
+    #   The actual package repository is the community one above
+    
     - name: Ensure keyrings directory exists
       file:
         path: /usr/share/keyrings
@@ -118,6 +124,8 @@
       ignore_errors: yes
 
     - name: Download Proxmox archive keyring (official method)
+      # Note: The GPG keyring file is hosted on enterprise.proxmox.com, but this is just the key file
+      # The actual package repository we use is the community one (http://download.proxmox.com/debian/pve)
       get_url:
         url: "https://enterprise.proxmox.com/debian/proxmox-archive-keyring-{{ proxmox_release_mapped }}.gpg"
         dest: /usr/share/keyrings/proxmox-archive-keyring.gpg
@@ -163,6 +171,9 @@
       failed_when: false
 
     - name: Add Proxmox VE repository using deb822 format (official method)
+      # Using community (no-subscription) repository - NOT enterprise
+      # Repository: http://download.proxmox.com/debian/pve
+      # Component: pve-no-subscription (community/free, no subscription required)
       copy:
         content: |
           Types: deb
@@ -175,6 +186,7 @@
       when: gpg_key_check.stat.exists
 
     - name: Add Proxmox VE repository (fallback to old format)
+      # Using community (no-subscription) repository - NOT enterprise
       apt_repository:
         repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pve {{ proxmox_release_mapped }} pve-no-subscription"
         state: present
