@@ -114,6 +114,17 @@
         filename: proxmox-ve
         update_cache: yes
 
+    - name: Verify repository was added correctly
+      command: cat /etc/apt/sources.list.d/proxmox-ve.list
+      register: repo_verify
+      changed_when: false
+      failed_when: false
+
+    - name: Display repository configuration
+      debug:
+        msg: "Repository configured: {{ repo_verify.stdout }}"
+      when: repo_verify.rc == 0
+
 - name: Install Proxmox VE
   when: proxmox_install_packages | default(true)
   block:
@@ -145,21 +156,33 @@
         msg: "Proxmox repository: {{ repo_check.stdout }}"
       when: repo_check.rc == 0
 
+    - name: Try alternative package search
+      command: apt-cache madison proxmox-ve
+      register: proxmox_madison_check
+      changed_when: false
+      failed_when: false
+      ignore_errors: yes
+
+    - name: Display package availability (madison)
+      debug:
+        msg: "Package availability: {{ proxmox_madison_check.stdout_lines }}"
+      when: proxmox_madison_check.rc == 0 and proxmox_madison_check.stdout_lines | length > 0
+
     - name: Warn if no Proxmox packages found
       debug:
         msg: |
           ⚠️  WARNING: No Proxmox packages found in repository!
           
-          This might mean:
-          1. Proxmox doesn't have packages for Debian {{ debian_version }} ({{ proxmox_release_mapped }}) yet
-          2. The repository wasn't added correctly
-          3. The apt cache needs to be updated
-          
           Detected: Debian {{ debian_version }} -> Proxmox release: {{ proxmox_release_mapped }}
           
-          Try creating vars/proxmox.local.yml and setting:
-          proxmox_release: bookworm  # or bullseye
-      when: proxmox_package_check.stdout_lines | length == 0
+          Troubleshooting:
+          1. Check repository: cat /etc/apt/sources.list.d/proxmox-ve.list
+          2. Update cache: sudo apt update
+          3. Check if repository is accessible
+          4. Verify GPG key is installed correctly
+      when: 
+        - proxmox_package_check.stdout_lines | length == 0
+        - proxmox_madison_check.rc != 0 or proxmox_madison_check.stdout_lines | length == 0
 
     - name: Install Proxmox VE packages
       apt:
