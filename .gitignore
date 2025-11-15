@@ -5,10 +5,8 @@
 *.vault
 vault/*.yml
 !vault/.gitkeep
-vars/users.local.yml
-vars/hardening.local.yml
-vars/proxmox.local.yml
-vars/secrets.local.yml
+# .local.yml files are now in git with commented examples
+# Users uncomment what they need
 VAULT_PASSWORD.txt
 generate-vault-password.ps1
 generate-vault-password-safe.ps1

@@ -17,58 +17,45 @@ This repository contains Ansible automation playbooks for server management task
 
 ## How It Works
 
-**Code vs Variables:**
-- **Code** (playbooks, roles, config) → In git, syncs to GitHub
-- **Variables** (`*.local.yml` files) → Not in git, stay on server
+**Configuration Files:**
+- All configuration files are in `vars/*.local.yml`
+- These files are in git and sync with GitHub
+- Each file has commented examples at the top
+- **Just uncomment and modify what you need!**
 
-Edit `*.local.yml` files with your server-specific data. These files are in `.gitignore` and will never sync to GitHub.
+**Configuration Files:**
+- `vars/users.local.yml` - User management configuration
+- `vars/hardening.local.yml` - Server hardening configuration
+- `vars/proxmox.local.yml` - Proxmox installation configuration (optional)
+- `vars/secrets.local.yml` - Sensitive secrets (passwords, API keys, etc.)
 
-### How to Know Which Files to Edit
+**How to Configure:**
+1. **Edit the `.local.yml` file:**
+   ```bash
+   nano vars/users.local.yml
+   ```
 
-**Quick Rule:**
-- **File ending in `.example`** = Template (DO NOT EDIT - will be overwritten)
-- **File ending in `.local.yml`** = Your actual config (SAFE TO EDIT - git-ignored)
+2. **Uncomment and modify the examples:**
+   - All examples are commented out with `#`
+   - Find what you need, uncomment it, and modify the values
+   - You can copy/paste examples and uncomment them
 
-**Template Files (DO NOT EDIT):**
-- `vars/users.local.yml.example` ❌ Don't edit
-- `vars/hardening.local.yml.example` ❌ Don't edit
-- `vars/proxmox.local.yml.example` ❌ Don't edit
-- `vars/secrets.local.yml.example` ❌ Don't edit
+3. **That's it!** The files are already in git, so they'll sync with your server
 
-**Your Config Files (SAFE TO EDIT):**
-- `vars/users.local.yml` ✅ Edit this
-- `vars/hardening.local.yml` ✅ Edit this
-- `vars/proxmox.local.yml` ✅ Edit this
-- `vars/secrets.local.yml` ✅ Edit this
+**Example:**
+```yaml
+# In vars/users.local.yml, you'll see:
+users: []
+# - name: my_user
+#   groups: ['sudo']
+#   ssh_public_key: "ssh-rsa AAAAB3..."
 
-**Quick Check:**
-```bash
-# See which files are git-ignored (your actual config files)
-git check-ignore vars/*.local.yml
-
-# See which files are in git (template files)
-git ls-files vars/*.example
+# Just uncomment and modify:
+users:
+  - name: alice
+    groups: ['sudo']
+    ssh_public_key: "ssh-rsa AAAAB3... alice@laptop"
 ```
-
-**Visual Check:**
-- Template files have `⚠️ TEMPLATE FILE - DO NOT EDIT` at the top
-- Your config files don't have this warning (they're safe to edit)
-
-**Workflow:**
-1. **First time setup:** Copy template to create your config
-   ```bash
-   cp vars/users.local.yml.example vars/users.local.yml
-   ```
-
-2. **Edit your config:** Always edit the `.local.yml` file (without `.example`)
-   ```bash
-   nano vars/users.local.yml  # ✅ Safe to edit
-   ```
-
-3. **Never edit templates:** Don't edit `.example` files
-   ```bash
-   nano vars/users.local.yml.example  # ❌ Will be overwritten!
-   ```
 
 ## Prerequisites
 
@@ -119,18 +106,16 @@ Automate user account creation, modification, and deletion on local servers.
 
 #### Quick Start
 
-1. **Create your variables file:**
+1. **Edit the configuration file:**
    ```bash
-   cp vars/users.local.yml.example vars/users.local.yml
    nano vars/users.local.yml
    ```
 
-2. **Add your users:**
+2. **Uncomment and modify the examples:**
    ```yaml
    users:
      - name: my_user
        groups: ['sudo']
-       shell: /bin/bash
        ssh_public_key: "ssh-rsa AAAAB3... your-key"
    ```
 
@@ -286,13 +271,13 @@ Automate server security hardening using industry best practices.
 
 #### Quick Start
 
-1. **Create your hardening configuration:**
+1. **Edit the configuration file:**
    ```bash
-   cp vars/hardening.local.yml.example vars/hardening.local.yml
    nano vars/hardening.local.yml
    ```
 
-2. **Review settings** - especially SSH and firewall configurations
+2. **Uncomment and modify the examples** - especially SSH and firewall configurations
+   - ⚠️ **IMPORTANT:** Add your IP to `hardening_ssh_allowed_sources` before running firewall hardening!
 
 3. **Run the playbook:**
    ```bash
@@ -524,20 +509,19 @@ Automate Proxmox VE installation on Debian-based systems.
 
 #### Quick Start
 
-1. **Create your Proxmox configuration:**
+1. **Edit the configuration file (optional):**
    ```bash
-   cp vars/proxmox.local.yml.example vars/proxmox.local.yml
    nano vars/proxmox.local.yml
    ```
+   - This file is optional - defaults will be used if not configured
+   - Uncomment and modify settings if needed (hostname, network, etc.)
 
-2. **Review settings** - especially hostname and network configuration
-
-3. **Run the playbook:**
+2. **Run the playbook:**
    ```bash
    ansible-playbook playbooks/proxmox-install.yml
    ```
 
-4. **Reboot if required** and access the web interface at `https://your-hostname:8006`
+3. **Reboot if required** and access the web interface at `https://your-hostname:8006`
 
 #### What It Does
 
@@ -647,13 +631,14 @@ This file is:
 
 **Setup:**
 ```bash
-# Create the secrets file
-cp vars/secrets.local.yml.example vars/secrets.local.yml
-chmod 600 vars/secrets.local.yml  # Restrict permissions
-
-# Edit with your secrets
+# Edit the secrets file
 nano vars/secrets.local.yml
+
+# Restrict permissions (important for security!)
+chmod 600 vars/secrets.local.yml
 ```
+
+**Uncomment and modify the examples** to add your secrets.
 
 **Security Best Practices:**
 1. **Restrict file permissions:**

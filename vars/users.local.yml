@@ -1,0 +1,25 @@
+---
+# ============================================================================
+# ✅ YOUR CONFIG FILE - EDIT THIS FILE! ✅
+# ============================================================================
+# 
+# This is YOUR configuration file.
+# Uncomment and modify the examples below to configure your users.
+# 
+# ============================================================================
+
+# Users - The variables file is the source of truth
+# Users in this list will be created or updated to match
+# Users removed from this list will be deleted (if remove_orphaned_users is true)
+users: []
+# Example user - uncomment and modify:
+# - name: my_user
+#   groups: ['sudo']                    # Groups to add user to (e.g., ['sudo', 'docker'])
+#   ssh_public_key: "ssh-rsa AAAAB3..." # Your SSH public key (recommended)
+#   sudo_passwordless: true             # Passwordless sudo (only if user is in 'sudo' group)
+#   # password: "$6$..."                 # Optional: password hash (for console login)
+#   # comment: "My user"                 # Optional: user description
+
+# Options
+remove_orphaned_users: false  # Set to true to delete users not in the 'users' list above
+
