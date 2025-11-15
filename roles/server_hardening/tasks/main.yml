@@ -286,6 +286,73 @@
         - all_resolved_ips | length > 0
       failed_when: false
 
+    - name: Get current connection IP address
+      shell: |
+        # Try to get the IP of the current SSH connection
+        if [ -n "$SSH_CONNECTION" ]; then
+          echo "$SSH_CONNECTION" | awk '{print $1}'
+        elif [ -n "$SSH_CLIENT" ]; then
+          echo "$SSH_CLIENT" | awk '{print $1}'
+        else
+          # Fallback: get IP from last successful login
+          last -n 1 -w | grep -E "still logged in|pts/" | head -1 | awk '{print $3}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown"
+        fi
+      register: current_connection_ip
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+
+    - name: Get current hostname
+      command: hostname
+      register: current_hostname
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+
+    - name: Display whitelist summary and current connection status
+      debug:
+        msg: |
+          ============================================================================
+          SSH Whitelist Summary
+          ============================================================================
+          
+          Configured Whitelist Sources:
+          {% for source in hardening_ssh_allowed_sources %}
+            - {{ source }}
+          {% endfor %}
+          
+          Resolved IP Addresses ({{ all_resolved_ips | default([]) | unique | length }} total):
+          {% for ip in all_resolved_ips | default([]) | unique %}
+            - {{ ip }}
+          {% endfor %}
+          
+          Current Connection:
+            IP Address: {{ current_connection_ip.stdout | default('unknown') }}
+            Hostname: {{ current_hostname.stdout | default('unknown') }}
+          
+          Status:
+          {% if current_connection_ip.stdout in all_resolved_ips | default([]) %}
+            ✅ Your current IP ({{ current_connection_ip.stdout }}) IS whitelisted
+          {% elif current_hostname.stdout in hardening_ssh_allowed_sources | default([]) %}
+            ✅ Your current hostname ({{ current_hostname.stdout }}) IS whitelisted
+          {% else %}
+            ⚠️  Your current IP ({{ current_connection_ip.stdout }}) is NOT in the whitelist
+            ⚠️  Make sure your IP is in hardening_ssh_allowed_sources or SSH may be blocked!
+          {% endif %}
+          
+          Note: Whitelisted IPs have access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
+          ============================================================================
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+
     - name: Allow SSH service name as backup (if port rule didn't work)
       ufw:
         rule: allow
