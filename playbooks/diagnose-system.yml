@@ -1,0 +1,262 @@
+---
+- name: System Diagnostics
+  hosts: localhost
+  become: yes
+  gather_facts: no
+  
+  tasks:
+    - name: Check system boot status
+      block:
+        - name: Check if system is booted normally
+          command: systemctl is-system-running || echo "degraded"
+          register: system_status
+          changed_when: false
+          failed_when: false
+
+        - name: Check failed systemd units
+          command: systemctl list-units --state=failed --no-pager
+          register: failed_units
+          changed_when: false
+          failed_when: false
+
+        - name: Check systemd services that failed to start
+          command: systemctl list-units --state=failed --type=service --no-pager
+          register: failed_services
+          changed_when: false
+          failed_when: false
+
+        - name: Display boot status
+          debug:
+            msg: |
+              ============================================================================
+              System Boot Status
+              ============================================================================
+              
+              System status: {{ system_status.stdout | default('unknown') }}
+              
+              Failed units:
+              {{ failed_units.stdout | default('None') }}
+              
+              Failed services:
+              {{ failed_services.stdout | default('None') }}
+              ============================================================================
+
+    - name: Check network configuration
+      block:
+        - name: Check network interfaces
+          command: ip -br addr show
+          register: network_interfaces
+          changed_when: false
+          failed_when: false
+
+        - name: Check network connectivity
+          command: ping -c 2 8.8.8.8 || echo "no_connectivity"
+          register: network_connectivity
+          changed_when: false
+          failed_when: false
+
+        - name: Check if network services are running
+          command: systemctl is-active networking || systemctl is-active NetworkManager || echo "inactive"
+          register: network_service
+          changed_when: false
+          failed_when: false
+
+        - name: Display network status
+          debug:
+            msg: |
+              ============================================================================
+              Network Status
+              ============================================================================
+              
+              Network interfaces:
+              {{ network_interfaces.stdout | default('Unknown') }}
+              
+              Connectivity test: {{ '✅ Working' if 'no_connectivity' not in network_connectivity.stdout else '❌ Failed' }}
+              Network service: {{ network_service.stdout | default('Unknown') }}
+              ============================================================================
+
+    - name: Check SSH service
+      block:
+        - name: Check SSH service status
+          systemd:
+            name: ssh
+          register: ssh_service
+          failed_when: false
+
+        - name: Check SSH port
+          command: ss -tlnp | grep :22 || echo "not_listening"
+          register: ssh_port_check
+          changed_when: false
+          failed_when: false
+
+        - name: Check SSH config
+          stat:
+            path: /etc/ssh/sshd_config
+          register: ssh_config_exists
+
+        - name: Check SSH config backup
+          stat:
+            path: /etc/ssh/sshd_config.backup
+          register: ssh_backup_exists
+
+        - name: Display SSH status
+          debug:
+            msg: |
+              ============================================================================
+              SSH Service Status
+              ============================================================================
+              
+              SSH service: {{ '✅ Running' if ssh_service.status.ActiveState == 'active' else '❌ Not running' }}
+              SSH enabled: {{ '✅ Yes' if ssh_service.status.UnitFileState == 'enabled' else '❌ No' }}
+              SSH port 22: {{ '✅ Listening' if 'not_listening' not in ssh_port_check.stdout else '❌ Not listening' }}
+              SSH config exists: {{ '✅ Yes' if ssh_config_exists.stat.exists else '❌ No' }}
+              SSH backup exists: {{ '✅ Yes' if ssh_backup_exists.stat.exists else '❌ No' }}
+              ============================================================================
+
+    - name: Check firewall status
+      block:
+        - name: Check UFW status
+          command: ufw status || echo "ufw_not_installed"
+          register: ufw_status
+          changed_when: false
+          failed_when: false
+
+        - name: Display firewall status
+          debug:
+            msg: |
+              ============================================================================
+              Firewall Status
+              ============================================================================
+              
+              UFW status:
+              {{ ufw_status.stdout | default('Unknown') }}
+              ============================================================================
+
+    - name: Check console/login services
+      block:
+        - name: Check getty services (console login)
+          command: systemctl list-units --type=service --state=active | grep getty || echo "no_getty"
+          register: getty_services
+          changed_when: false
+          failed_when: false
+
+        - name: Check if console is accessible
+          command: who || echo "no_users"
+          register: console_users
+          changed_when: false
+          failed_when: false
+
+        - name: Display console status
+          debug:
+            msg: |
+              ============================================================================
+              Console/Login Status
+              ============================================================================
+              
+              Getty services: {{ '✅ Active' if 'no_getty' not in getty_services.stdout else '❌ Not found' }}
+              Console users: {{ console_users.stdout | default('None') }}
+              ============================================================================
+
+    - name: Check recent boot logs
+      block:
+        - name: Get last boot time
+          command: who -b || uptime -s || echo "unknown"
+          register: boot_time
+          changed_when: false
+          failed_when: false
+
+        - name: Check for errors in current boot
+          command: journalctl -b --priority=err --no-pager | tail -20 || echo "no_errors"
+          register: boot_errors
+          changed_when: false
+          failed_when: false
+
+        - name: Check for failed services in boot
+          command: journalctl -b --no-pager | grep -i "failed\|error\|timeout" | tail -20 || echo "no_issues"
+          register: boot_issues
+          changed_when: false
+          failed_when: false
+
+        - name: Display boot log summary
+          debug:
+            msg: |
+              ============================================================================
+              Boot Log Summary
+              ============================================================================
+              
+              Last boot: {{ boot_time.stdout | default('Unknown') }}
+              
+              Recent errors:
+              {{ boot_errors.stdout | default('None found') }}
+              
+              Recent issues:
+              {{ boot_issues.stdout | default('None found') }}
+              ============================================================================
+
+    - name: Check Proxmox-specific services
+      block:
+        - name: Check if Proxmox is installed
+          command: dpkg -l | grep -q proxmox-ve || echo "not_installed"
+          register: proxmox_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Check Proxmox services
+          command: systemctl list-units --type=service | grep -E "pve|proxmox" || echo "no_proxmox_services"
+          register: proxmox_services
+          changed_when: false
+          failed_when: false
+
+        - name: Check current kernel
+          command: uname -r
+          register: current_kernel
+          changed_when: false
+          failed_when: false
+
+        - name: Check available kernels
+          command: ls /boot/vmlinuz-* 2>/dev/null | wc -l || echo "0"
+          register: available_kernels
+          changed_when: false
+          failed_when: false
+
+        - name: Display Proxmox status
+          debug:
+            msg: |
+              ============================================================================
+              Proxmox Status
+              ============================================================================
+              
+              Proxmox installed: {{ '✅ Yes' if proxmox_installed.rc == 0 else '❌ No' }}
+              Current kernel: {{ current_kernel.stdout | default('Unknown') }}
+              Available kernels: {{ available_kernels.stdout | default('0') }}
+              
+              Proxmox services:
+              {{ proxmox_services.stdout | default('None found') }}
+              ============================================================================
+
+    - name: Summary and recommendations
+      debug:
+        msg: |
+          ============================================================================
+          Diagnostic Summary
+          ============================================================================
+          
+          Review the output above to identify issues:
+          
+          1. Check "System Boot Status" - Are there failed units?
+          2. Check "Network Status" - Is networking working?
+          3. Check "SSH Service Status" - Is SSH running and listening?
+          4. Check "Firewall Status" - Is UFW blocking anything?
+          5. Check "Console/Login Status" - Are getty services running?
+          6. Check "Boot Log Summary" - Are there errors during boot?
+          7. Check "Proxmox Status" - Is Proxmox causing issues?
+          
+          Common issues:
+          - Failed systemd units preventing boot completion
+          - Network not starting properly
+          - SSH service not enabled/started
+          - Firewall blocking access
+          - Console services not running
+          - Kernel issues after Proxmox installation
+          ============================================================================
+
