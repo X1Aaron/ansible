@@ -3,7 +3,7 @@
 # This script re-resolves hostnames and updates UFW rules every 5 minutes
 # Created by Ansible server_hardening role
 
-SSH_PORT="{{ current_ssh_port | default(22) }}"
+SSH_PORT="{{ hardening_ssh_port | default(22) }}"
 WHITELIST_FILE="/etc/ufw/ssh-whitelist-sources.conf"
 LOG_FILE="/var/log/ufw-ssh-whitelist-update.log"
 
@@ -31,7 +31,8 @@ if [ ! -f "$WHITELIST_FILE" ]; then
 fi
 
 # Get current allowed IPs from UFW (for this SSH port)
-CURRENT_IPS=$(ufw status numbered | grep -E "^\s*\[.*\]\s+${SSH_PORT}/tcp\s+ALLOW IN" | awk '{print $NF}' | sort -u)
+# Only get IPs that were added by this script (not the default "Anywhere" rules)
+CURRENT_IPS=$(ufw status numbered | grep -E "^\s*\[.*\]\s+${SSH_PORT}/tcp\s+ALLOW IN" | grep -v "Anywhere" | awk '{print $NF}' | sort -u)
 
 # Resolve all hostnames and collect IPs
 RESOLVED_IPS=""
