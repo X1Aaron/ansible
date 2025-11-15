@@ -214,6 +214,13 @@
         state: absent
       when: proxmox_installed.rc == 0
 
+    - name: Ensure SSH service is enabled and started
+      systemd:
+        name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+        enabled: yes
+        state: started
+      failed_when: false
+
     - name: Verify installation
       command: pveversion
       register: proxmox_version
