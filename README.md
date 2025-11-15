@@ -430,11 +430,8 @@ proxmox_network_config:
 - **Web Interface:** HTTPS on port 8006
 - **SSH Access:** Standard SSH (consider running server-hardening playbook after installation)
 - **Firewall:** Configure firewall rules for Proxmox ports (8006, 5900-5999 for VNC, etc.)
-- **Firewall:** Default deny incoming, allow outgoing
-- **Fail2ban:** Automatic IP banning for failed login attempts
-- **Kernel:** IP forwarding disabled, source routing disabled, SYN cookies enabled
-- **Updates:** Automatic security updates enabled
-- **Services:** Insecure services (telnet, rsh, etc.) disabled
+
+**Note:** After Proxmox installation, consider running the server-hardening playbook to secure SSH and configure firewall rules.
 
 ---
 
