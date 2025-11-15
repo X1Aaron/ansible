@@ -72,11 +72,11 @@ if [ ! -f vars/users.local.yml ]; then
 # Users - The variables file is the source of truth
 # Add your users here (see example file for format)
 users: []
-  # Example:
-  # - name: my_user
-  #   groups: ['sudo']
-  #   ssh_public_key: "ssh-rsa AAAAB3..."
-  #   sudo_passwordless: true
+# Example:
+# - name: my_user
+#   groups: ['sudo']
+#   ssh_public_key: "ssh-rsa AAAAB3..."
+#   sudo_passwordless: true
 
 # Options
 remove_orphaned_users: false
