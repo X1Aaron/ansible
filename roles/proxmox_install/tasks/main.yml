@@ -35,12 +35,6 @@
       register: system_hostname
       changed_when: false
 
-    - name: Check current hostname resolution
-      command: hostname --ip-address
-      register: hostname_ip_check
-      changed_when: false
-      failed_when: false
-
     - name: Get actual non-loopback IP addresses
       shell: |
         ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v '^127\.' | head -1
@@ -59,6 +53,36 @@
     - name: Set the actual IP to use
       set_fact:
         detected_ip: "{{ (actual_ip.stdout | default('')) | length > 0 | ternary(actual_ip.stdout, actual_ip_fallback.stdout | default('')) }}"
+
+    - name: Read /etc/hosts file for display
+      slurp:
+        src: /etc/hosts
+      register: hosts_file_content
+      changed_when: false
+      failed_when: false
+
+    - name: Check current hostname resolution
+      command: hostname --ip-address
+      register: hostname_ip_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display hostname and network diagnostics
+      debug:
+        msg: |
+          ============================================================================
+          Hostname & Network Diagnostics
+          ============================================================================
+          
+          Hostname: {{ system_hostname.stdout }}
+          
+          Current Hostname Resolution: {{ hostname_ip_check.stdout | default('FAILED - does not resolve') }}
+          Detected Network IP Address: {{ detected_ip | default('NOT FOUND') }}
+          
+          /etc/hosts file contents:
+          {{ hosts_file_content.content | b64decode | default('Could not read /etc/hosts') }}
+          
+          ============================================================================
 
     - name: Check if resolved IP is loopback
       set_fact:
