@@ -321,12 +321,22 @@
 - name: Disable unnecessary services
   when: hardening_disable_services | default(true)
   block:
+    - name: Check if service exists
+      command: systemctl list-unit-files "{{ item }}.service" --no-pager
+      register: service_check
+      changed_when: false
+      failed_when: false
+      loop: "{{ hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) }}"
+      loop_control:
+        label: "{{ item }}"
+
     - name: Stop and disable unnecessary services
       systemd:
-        name: "{{ item }}"
+        name: "{{ item.item }}"
         state: stopped
         enabled: no
-      loop: "{{ hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) }}"
+      loop: "{{ service_check.results }}"
+      when: item.rc == 0
       ignore_errors: yes
 
 - name: Configure time synchronization
@@ -338,11 +348,20 @@
         state: present
       ignore_errors: yes
 
-    - name: Install ntp (fallback)
+    - name: Check if chrony is installed
+      command: which chronyd
+      register: chrony_check
+      changed_when: false
+      failed_when: false
+      ignore_errors: yes
+
+    - name: Install ntp (fallback if chrony not available)
       package:
         name: ntp
         state: present
-      when: ansible_pkg_mgr == "apt"
+      when: 
+        - ansible_pkg_mgr == "apt"
+        - chrony_check.rc != 0
       ignore_errors: yes
 
     - name: Start and enable chronyd
@@ -350,6 +369,7 @@
         name: chronyd
         state: started
         enabled: yes
+      when: chrony_check.rc == 0
       ignore_errors: yes
 
     - name: Start and enable ntpd
@@ -357,7 +377,9 @@
         name: ntpd
         state: started
         enabled: yes
-      when: ansible_pkg_mgr == "apt"
+      when: 
+        - ansible_pkg_mgr == "apt"
+        - chrony_check.rc != 0
       ignore_errors: yes
 
 - name: Set restrictive file permissions
