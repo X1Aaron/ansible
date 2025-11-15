@@ -233,7 +233,11 @@
         rule: allow
         port: "{{ current_ssh_port }}"
         proto: tcp
+        {{ 'from: ' + item if item is defined else '' }}
         state: enabled
+      loop: "{{ hardening_ssh_allowed_sources | default(['']) | list }}"
+      loop_control:
+        label: "{{ 'SSH from ' + item if item != '' else 'SSH from anywhere' }}"
       when: ansible_os_family == "Debian"
       failed_when: false
 
@@ -242,7 +246,9 @@
         rule: allow
         name: OpenSSH
         state: enabled
-      when: ansible_os_family == "Debian"
+      when: 
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is not defined or hardening_ssh_allowed_sources | length == 0
       failed_when: false
 
     - name: Verify SSH is allowed in UFW
@@ -251,6 +257,7 @@
       changed_when: false
       failed_when: false
       when: ansible_os_family == "Debian"
+      ignore_errors: yes
 
     - name: Fail if SSH is not allowed in firewall
       fail:
