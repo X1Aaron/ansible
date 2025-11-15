@@ -1,0 +1,40 @@
+---
+- name: Disable Unnecessary Services
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Disable unnecessary services
+      when: hardening_disable_services | default(true)
+      block:
+        - name: Check if service exists
+          command: systemctl list-unit-files "{{ item }}.service" --no-pager
+          register: service_check
+          changed_when: false
+          failed_when: false
+          loop: "{{ hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) }}"
+          loop_control:
+            label: "{{ item }}"
+
+        - name: Stop and disable unnecessary services
+          systemd:
+            name: "{{ item.item }}"
+            state: stopped
+            enabled: no
+          loop: "{{ service_check.results }}"
+          when: item.rc == 0
+          ignore_errors: yes
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          Service Disabling Complete
+          ============================================================================
+          
+          Services disabled: {{ 'Enabled' if (hardening_disable_services | default(true)) else 'Skipped' }}
+          Disabled services: {{ hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) | join(', ') }}
+          ============================================================================
+

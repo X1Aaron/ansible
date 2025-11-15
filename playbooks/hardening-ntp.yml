@@ -1,0 +1,78 @@
+---
+- name: Time Synchronization Configuration
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Detect package manager
+      shell: |
+        if command -v apt >/dev/null 2>&1; then
+          echo "apt"
+        elif command -v yum >/dev/null 2>&1; then
+          echo "yum"
+        else
+          echo "unknown"
+        fi
+      register: pkg_mgr_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set package manager fact
+      set_fact:
+        ansible_pkg_mgr: "{{ pkg_mgr_result.stdout }}"
+
+    - name: Configure time synchronization
+      when: hardening_configure_ntp | default(true)
+      block:
+        - name: Install chrony (preferred)
+          package:
+            name: chrony
+            state: present
+          ignore_errors: yes
+
+        - name: Check if chrony is installed
+          command: which chronyd
+          register: chrony_check
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Install ntp (fallback if chrony not available)
+          package:
+            name: ntp
+            state: present
+          when: 
+            - ansible_pkg_mgr == "apt"
+            - chrony_check.rc != 0
+          ignore_errors: yes
+
+        - name: Start and enable chronyd
+          systemd:
+            name: chronyd
+            state: started
+            enabled: yes
+          when: chrony_check.rc == 0
+          ignore_errors: yes
+
+        - name: Start and enable ntpd
+          systemd:
+            name: ntpd
+            state: started
+            enabled: yes
+          when: 
+            - ansible_pkg_mgr == "apt"
+            - chrony_check.rc != 0
+          ignore_errors: yes
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          Time Synchronization Configuration Complete
+          ============================================================================
+          
+          NTP/Chrony: {{ 'Enabled' if (hardening_configure_ntp | default(true)) else 'Skipped' }}
+          ============================================================================
+

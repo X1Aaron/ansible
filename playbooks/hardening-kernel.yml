@@ -1,0 +1,47 @@
+---
+- name: Kernel Parameters Hardening
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Configure kernel parameters
+      when: hardening_harden_kernel | default(true)
+      block:
+        - name: Set kernel parameters
+          sysctl:
+            name: "{{ item.name }}"
+            value: "{{ item.value }}"
+            state: present
+            sysctl_set: yes
+            reload: yes
+          loop:
+            - { name: net.ipv4.ip_forward, value: '0' }
+            - { name: net.ipv4.conf.all.send_redirects, value: '0' }
+            - { name: net.ipv4.conf.default.send_redirects, value: '0' }
+            - { name: net.ipv4.conf.all.accept_redirects, value: '0' }
+            - { name: net.ipv4.conf.default.accept_redirects, value: '0' }
+            - { name: net.ipv4.conf.all.accept_source_route, value: '0' }
+            - { name: net.ipv4.conf.default.accept_source_route, value: '0' }
+            - { name: net.ipv4.conf.all.log_martians, value: '1' }
+            - { name: net.ipv4.conf.default.log_martians, value: '1' }
+            - { name: net.ipv4.icmp_echo_ignore_broadcasts, value: '1' }
+            - { name: net.ipv4.icmp_ignore_bogus_error_responses, value: '1' }
+            - { name: net.ipv4.tcp_syncookies, value: '1' }
+            - { name: net.ipv6.conf.all.accept_redirects, value: '0' }
+            - { name: net.ipv6.conf.default.accept_redirects, value: '0' }
+            - { name: net.ipv6.conf.all.accept_source_route, value: '0' }
+            - { name: net.ipv6.conf.default.accept_source_route, value: '0' }
+          ignore_errors: yes
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          Kernel Parameters Hardening Complete
+          ============================================================================
+          
+          Kernel hardening: {{ 'Enabled' if (hardening_harden_kernel | default(true)) else 'Skipped' }}
+          ============================================================================
+

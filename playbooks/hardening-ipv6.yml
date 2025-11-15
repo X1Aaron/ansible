@@ -1,0 +1,30 @@
+---
+- name: IPv6 Disable (if needed)
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Disable IPv6 if not needed
+      when: hardening_disable_ipv6 | default(false)
+      block:
+        - name: Disable IPv6 in kernel parameters
+          sysctl:
+            name: net.ipv6.conf.all.disable_ipv6
+            value: '1'
+            state: present
+            sysctl_set: yes
+            reload: yes
+          ignore_errors: yes
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          IPv6 Configuration Complete
+          ============================================================================
+          
+          IPv6 disabled: {{ 'Yes' if (hardening_disable_ipv6 | default(false)) else 'No (kept enabled)' }}
+          ============================================================================
+

@@ -1,0 +1,72 @@
+---
+- name: Audit Logging Configuration
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Detect OS family
+      shell: |
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          case "$ID" in
+            ubuntu|debian)
+              echo "Debian"
+              ;;
+            rhel|centos|fedora|rocky|almalinux)
+              echo "RedHat"
+              ;;
+            *)
+              echo "Unknown"
+              ;;
+          esac
+        elif [ -f /etc/redhat-release ]; then
+          echo "RedHat"
+        elif [ -f /etc/debian_version ]; then
+          echo "Debian"
+        else
+          echo "Unknown"
+        fi
+      register: os_family_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set OS family fact
+      set_fact:
+        ansible_os_family: "{{ os_family_result.stdout }}"
+
+    - name: Configure audit logging
+      when: hardening_configure_audit | default(true)
+      block:
+        - name: Install auditd (Debian/Ubuntu)
+          apt:
+            name: auditd
+            state: present
+          when: ansible_os_family == "Debian"
+          ignore_errors: yes
+
+        - name: Install audit (RHEL/CentOS)
+          yum:
+            name: audit
+            state: present
+          when: ansible_os_family == "RedHat"
+          ignore_errors: yes
+
+        - name: Start and enable auditd
+          systemd:
+            name: auditd
+            state: started
+            enabled: yes
+          ignore_errors: yes
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          Audit Logging Configuration Complete
+          ============================================================================
+          
+          Audit logging: {{ 'Enabled' if (hardening_configure_audit | default(true)) else 'Skipped' }}
+          ============================================================================
+

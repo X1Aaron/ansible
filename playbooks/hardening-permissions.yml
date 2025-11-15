@@ -1,0 +1,29 @@
+---
+- name: File Permissions Hardening
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Set restrictive file permissions
+      when: hardening_set_file_permissions | default(true)
+      block:
+        - name: Set restrictive permissions on sensitive files
+          file:
+            path: "{{ item.path }}"
+            mode: "{{ item.mode }}"
+            state: file
+          loop: "{{ hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}]) }}"
+          ignore_errors: yes
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          File Permissions Hardening Complete
+          ============================================================================
+          
+          File permissions: {{ 'Enabled' if (hardening_set_file_permissions | default(true)) else 'Skipped' }}
+          ============================================================================
+

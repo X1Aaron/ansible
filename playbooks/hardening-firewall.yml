@@ -1,0 +1,365 @@
+---
+- name: Firewall Configuration
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/hardening.local.yml
+  
+  tasks:
+    - name: Detect OS family
+      shell: |
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          case "$ID" in
+            ubuntu|debian)
+              echo "Debian"
+              ;;
+            rhel|centos|fedora|rocky|almalinux)
+              echo "RedHat"
+              ;;
+            *)
+              echo "Unknown"
+              ;;
+          esac
+        elif [ -f /etc/redhat-release ]; then
+          echo "RedHat"
+        elif [ -f /etc/debian_version ]; then
+          echo "Debian"
+        else
+          echo "Unknown"
+        fi
+      register: os_family_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set OS family fact
+      set_fact:
+        ansible_os_family: "{{ os_family_result.stdout }}"
+
+    - name: Configure firewall
+      when: hardening_configure_firewall | default(true)
+      block:
+        - name: Install UFW (Debian/Ubuntu)
+          apt:
+            name: ufw
+            state: present
+          when: ansible_os_family == "Debian"
+          ignore_errors: yes
+
+        - name: Get current SSH port from config
+          shell: |
+            grep -E '^Port|^#Port' /etc/ssh/sshd_config | tail -1 | sed 's/^#Port/Port/' | awk '{print $2}'
+          register: ssh_port_result
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "Debian"
+
+        - name: Set SSH port fact
+          set_fact:
+            current_ssh_port: "{{ (ssh_port_result.stdout | default('22')) | int }}"
+          when: ansible_os_family == "Debian"
+
+        - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL) - from anywhere
+          ufw:
+            rule: allow
+            port: "{{ current_ssh_port }}"
+            proto: tcp
+            state: enabled
+          when: 
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is not defined or hardening_ssh_allowed_sources | length == 0
+          failed_when: false
+
+        - name: Install hostname resolution script
+          copy:
+            src: ../../roles/server_hardening/files/resolve-hostname.sh
+            dest: /usr/local/bin/resolve-hostname.sh
+            mode: '0755'
+          when: 
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+
+        - name: Resolve hostnames to IP addresses for SSH whitelist (supports multiple IPs per hostname)
+          command: /usr/local/bin/resolve-hostname.sh "{{ item }}"
+          register: resolved_sources
+          loop: "{{ hardening_ssh_allowed_sources }}"
+          loop_control:
+            label: "{{ item }}"
+          changed_when: false
+          failed_when: false
+          when: 
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+
+        - name: Flatten resolved IPs (handle multiple IPs per hostname)
+          set_fact:
+            all_resolved_ips: "{{ all_resolved_ips | default([]) + item.stdout_lines | default([]) }}"
+          loop: "{{ resolved_sources.results | default([]) }}"
+          when: 
+            - item.stdout is defined
+            - ansible_os_family == "Debian"
+
+        - name: Allow all ports from whitelisted IPs (trusted sources - SSH, Proxmox, HTTP, HTTPS, etc.)
+          ufw:
+            rule: allow
+            from: "{{ item }}"
+            state: enabled
+          loop: "{{ all_resolved_ips | default([]) | unique }}"
+          loop_control:
+            label: "All ports from {{ item }} (trusted source)"
+          when: 
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - all_resolved_ips is defined
+            - all_resolved_ips | length > 0
+          failed_when: false
+
+        - name: Get current connection IP address
+          shell: |
+            # Try to get the IP of the current SSH connection
+            if [ -n "$SSH_CONNECTION" ]; then
+              echo "$SSH_CONNECTION" | awk '{print $1}'
+            elif [ -n "$SSH_CLIENT" ]; then
+              echo "$SSH_CLIENT" | awk '{print $1}'
+            else
+              # Fallback: get IP from last successful login
+              last -n 1 -w | grep -E "still logged in|pts/" | head -1 | awk '{print $3}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown"
+            fi
+          register: current_connection_ip
+          changed_when: false
+          failed_when: false
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+
+        - name: Get current hostname
+          command: hostname
+          register: current_hostname
+          changed_when: false
+          failed_when: false
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+
+        - name: Display whitelist summary and current connection status
+          debug:
+            msg: |
+              ============================================================================
+              SSH Whitelist Summary
+              ============================================================================
+              
+              Configured Whitelist Sources:
+              {% for source in hardening_ssh_allowed_sources %}
+                - {{ source }}
+              {% endfor %}
+              
+              Resolved IP Addresses ({{ all_resolved_ips | default([]) | unique | length }} total):
+              {% for ip in all_resolved_ips | default([]) | unique %}
+                - {{ ip }}
+              {% endfor %}
+              
+              Current Connection:
+                IP Address: {{ current_connection_ip.stdout | default('unknown') }}
+                Hostname: {{ current_hostname.stdout | default('unknown') }}
+              
+              Status:
+              {% if current_connection_ip.stdout in all_resolved_ips | default([]) %}
+                ✅ Your current IP ({{ current_connection_ip.stdout }}) IS whitelisted
+              {% elif current_hostname.stdout in hardening_ssh_allowed_sources | default([]) %}
+                ✅ Your current hostname ({{ current_hostname.stdout }}) IS whitelisted
+              {% else %}
+                ⚠️  Your current IP ({{ current_connection_ip.stdout }}) is NOT in the whitelist
+                ⚠️  Make sure your IP is in hardening_ssh_allowed_sources or SSH may be blocked!
+              {% endif %}
+              
+              Note: Whitelisted IPs have access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
+              ============================================================================
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+
+        - name: Allow SSH service name as backup (if port rule didn't work)
+          ufw:
+            rule: allow
+            name: OpenSSH
+            state: enabled
+          when: 
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is not defined or hardening_ssh_allowed_sources | length == 0
+          failed_when: false
+
+        - name: Verify SSH is allowed in UFW
+          command: ufw status | grep -E "{{ current_ssh_port }}/tcp|OpenSSH" || echo "SSH_NOT_ALLOWED"
+          register: ufw_ssh_check
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "Debian"
+          ignore_errors: yes
+
+        - name: Fail if SSH is not allowed in firewall
+          fail:
+            msg: |
+              ⚠️  CRITICAL: SSH port {{ current_ssh_port }} is NOT allowed in UFW firewall!
+              
+              This would LOCK YOU OUT! Aborting firewall configuration.
+              
+              Please manually allow SSH: sudo ufw allow {{ current_ssh_port }}/tcp
+          when:
+            - ansible_os_family == "Debian"
+            - ufw_ssh_check.stdout is defined
+            - "'SSH_NOT_ALLOWED' in ufw_ssh_check.stdout"
+
+        - name: Configure UFW default policies (only after SSH is confirmed allowed)
+          ufw:
+            state: enabled
+            policy: "{{ item.policy }}"
+            direction: "{{ item.direction }}"
+          loop:
+            - { policy: deny, direction: incoming }
+            - { policy: allow, direction: outgoing }
+          when: ansible_os_family == "Debian"
+
+        - name: Enable UFW firewall (CRITICAL - applies all rules)
+          ufw:
+            state: enabled
+          when: ansible_os_family == "Debian"
+          failed_when: false
+
+        - name: Verify UFW is enabled and SSH is allowed
+          command: ufw status verbose
+          register: ufw_final_status
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "Debian"
+
+        - name: Display UFW status for verification
+          debug:
+            msg: "{{ ufw_final_status.stdout }}"
+          when: 
+            - ansible_os_family == "Debian"
+            - ufw_final_status.stdout is defined
+
+        - name: Allow additional services through UFW
+          ufw:
+            rule: allow
+            name: "{{ item }}"
+            state: enabled
+          loop: "{{ hardening_firewall_allowed_services | default([]) }}"
+          when: 
+            - ansible_os_family == "Debian"
+            - item != "OpenSSH"  # Already allowed above
+          ignore_errors: yes
+
+        - name: Create SSH whitelist sources file for dynamic updates
+          copy:
+            content: |
+              # Trusted Source Whitelist
+              # This file is used by the UFW whitelist update script
+              # One source per line (IP, CIDR, or hostname)
+              # Hostnames will be resolved to IPs every minute
+              # Whitelisted IPs are allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
+              {% for source in hardening_ssh_allowed_sources | default([]) %}
+              {{ source }}
+              {% endfor %}
+            dest: /etc/ufw/ssh-whitelist-sources.conf
+            mode: '0644'
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - hardening_ssh_whitelist_auto_update | default(true)
+
+        - name: Install UFW SSH whitelist update script
+          template:
+            src: ../../roles/server_hardening/templates/ufw-ssh-whitelist-update.sh.j2
+            dest: /usr/local/bin/ufw-ssh-whitelist-update.sh
+            mode: '0755'
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - hardening_ssh_whitelist_auto_update | default(true)
+
+        - name: Set whitelist update interval
+          set_fact:
+            whitelist_update_interval: "{{ hardening_ssh_whitelist_update_interval | default('1min') }}"
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - hardening_ssh_whitelist_auto_update | default(true)
+
+        - name: Create systemd timer for UFW SSH whitelist updates
+          copy:
+            content: |
+              [Unit]
+              Description=Update UFW SSH whitelist from hostnames
+              Requires=ufw.service
+
+              [Timer]
+              OnBootSec={{ whitelist_update_interval }}
+              OnUnitActiveSec={{ whitelist_update_interval }}
+              AccuracySec=10s
+
+              [Install]
+              WantedBy=timers.target
+            dest: /etc/systemd/system/ufw-ssh-whitelist-update.timer
+            mode: '0644'
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - hardening_ssh_whitelist_auto_update | default(true)
+
+        - name: Create systemd service for UFW SSH whitelist updates
+          copy:
+            content: |
+              [Unit]
+              Description=Update UFW SSH whitelist from hostnames
+              After=network.target ufw.service
+
+              [Service]
+              Type=oneshot
+              ExecStart=/usr/local/bin/ufw-ssh-whitelist-update.sh
+              StandardOutput=journal
+              StandardError=journal
+            dest: /etc/systemd/system/ufw-ssh-whitelist-update.service
+            mode: '0644'
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - hardening_ssh_whitelist_auto_update | default(true)
+
+        - name: Enable and start UFW SSH whitelist update timer
+          systemd:
+            name: ufw-ssh-whitelist-update.timer
+            enabled: yes
+            daemon_reload: yes
+            state: started
+          when:
+            - ansible_os_family == "Debian"
+            - hardening_ssh_allowed_sources is defined
+            - hardening_ssh_allowed_sources | length > 0
+            - hardening_ssh_whitelist_auto_update | default(true)
+
+    - name: Display summary
+      debug:
+        msg: |
+          ============================================================================
+          Firewall Configuration Complete
+          ============================================================================
+          
+          ⚠️  CRITICAL: Test SSH access from another terminal before closing this session!
+          
+          UFW Status: {{ 'Enabled' if (hardening_configure_firewall | default(true)) else 'Skipped' }}
+          SSH Port: {{ current_ssh_port | default('22') }}
+          Whitelist: {{ 'Enabled' if (hardening_ssh_allowed_sources is defined and hardening_ssh_allowed_sources | length > 0) else 'Disabled' }}
+          ============================================================================
+
