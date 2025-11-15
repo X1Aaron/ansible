@@ -21,22 +21,22 @@
 # Proxmox release version
 # Options: 'trixie' (Debian 13 - default), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
 # If this file doesn't exist or this is not set, defaults to 'trixie' (Debian 13)
-# proxmox_release: trixie
+proxmox_release: trixie
 
 # System update before installation
-# proxmox_update_system: true
+proxmox_update_system: true
 
 # Install Proxmox VE packages
-# proxmox_install_packages: true
+proxmox_install_packages: true
 
 # Configure Proxmox after installation
-# proxmox_configure: true
+proxmox_configure: true
 
-# Hostname for the Proxmox server
+# Hostname for the Proxmox server (optional - only uncomment if you want to set a specific hostname)
 # proxmox_hostname: pve1.example.com
 
 # Reboot after installation (if required)
-# proxmox_reboot_after_install: true
+proxmox_reboot_after_install: true
 
 # Network configuration (optional)
 # Uncomment and configure if you need to set up network interfaces
