@@ -2,9 +2,20 @@
 - name: Pre-flight safety checks
   when: hardening_ssh_harden | default(true) and (hardening_ssh_password_auth | default("no")) == "no"
   block:
+    - name: Get current user's home directory
+      shell: |
+        getent passwd "{{ ansible_user_id }}" | cut -d: -f6
+      register: user_home_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set user home directory fact
+      set_fact:
+        user_home: "{{ user_home_result.stdout | default('/root') }}"
+
     - name: Check if current user has SSH key authentication
       stat:
-        path: "{{ ansible_env.HOME }}/.ssh/authorized_keys"
+        path: "{{ user_home }}/.ssh/authorized_keys"
       register: user_ssh_keys
       failed_when: false
 
