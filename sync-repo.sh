@@ -15,6 +15,16 @@ if [ -d "$REPO_DIR" ]; then
     fi
     
     git pull origin main
+    
+    # Make all .sh files in root executable
+    echo "Making all .sh files executable..."
+    for sh_file in *.sh; do
+        if [ -f "$sh_file" ]; then
+            chmod +x "$sh_file"
+            echo "  ✓ Made $sh_file executable"
+        fi
+    done
+    
     echo "Repository synced successfully at $(date)"
 else
     echo "Error: Repository directory not found at $REPO_DIR"
