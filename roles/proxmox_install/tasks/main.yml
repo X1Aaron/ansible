@@ -440,13 +440,31 @@
 - name: Display installation summary
   debug:
     msg: |
-      ✅ Proxmox VE installation completed!
+      ╔══════════════════════════════════════════════════════════════════════════╗
+      ║                    ✅ Proxmox VE Installation Complete!                  ║
+      ╚══════════════════════════════════════════════════════════════════════════╝
       
-      Next steps:
-      1. Reboot the system if required
-      2. Access the web interface at: https://{{ proxmox_hostname | default(system_hostname.stdout) }}:8006
-      3. Login with root credentials
-      4. Configure your storage and network settings
+      📋 Next Steps:
       
-      Note: If you changed the hostname, make sure DNS is configured correctly.
+      1. 🔄 Reboot the system (if required)
+         Run: sudo reboot
+      
+      2. 🌐 Access the Web Interface
+         URL: https://{{ proxmox_hostname | default(system_hostname.stdout) }}:8006
+      
+      3. 🔐 Login
+         Username: root
+         Password: (your root password)
+      
+      4. ⚙️  Configure Proxmox
+         - Set up storage
+         - Configure network bridges
+         - Create virtual machines/containers
+      
+      ⚠️  Important Notes:
+      • If you changed the hostname, ensure DNS is configured correctly
+      • The hostname must resolve to a non-loopback IP address
+      • Check /etc/hosts if hostname resolution fails
+      
+      📚 Documentation: https://pve.proxmox.com/pve-docs/
 
