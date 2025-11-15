@@ -38,14 +38,3 @@ proxmox_configure: true  # RECOMMENDED: Configure Proxmox after installation (de
 # Reboot after installation (if required)
 proxmox_reboot_after_install: true  # RECOMMENDED: Reboot after installation if required (default: true)
 
-# Network configuration
-# proxmox_network_config:  # OPTIONAL: Network interface configuration (only uncomment if you need to configure network)
-#   - interface: enp0s3
-#     method: static
-#     address: 192.168.1.100
-#     netmask: 255.255.255.0
-#     gateway: 192.168.1.1
-#     dns_nameservers:
-#       - 8.8.8.8
-#       - 8.8.4.4
-
