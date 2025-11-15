@@ -3,8 +3,10 @@
   hosts: localhost
   become: yes
   vars_files:
-    # Load your user definitions from this file
-    # Create it by copying: cp vars/users.yml vars/users.local.yml
+    # Load ALL your user variables from this ONE file
+    # This file is NOT in git - it stays on your server only
+    # Create it: cp vars/users.local.yml.example vars/users.local.yml
+    # Then edit it with all your users, passwords, SSH keys, etc.
     - ../vars/users.local.yml
   
   tasks:
