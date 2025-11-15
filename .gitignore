@@ -1,17 +1,9 @@
 # Ansible
 *.retry
-.vault_pass
-.vault_pass_*
-*.vault
-vault/*.yml
-!vault/.gitkeep
 vars/users.local.yml
 vars/hardening.local.yml
 vars/proxmox.local.yml
 vars/secrets.local.yml
-VAULT_PASSWORD.txt
-generate-vault-password.ps1
-generate-vault-password-safe.ps1
 
 # Python
 __pycache__/
