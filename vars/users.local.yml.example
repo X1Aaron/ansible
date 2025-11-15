@@ -21,20 +21,23 @@
 # USER MANAGEMENT CONFIGURATION
 # ============================================================================
 # 
-# To add a new user: Copy the entire user block below and paste it below
-# the existing users. Then modify the name and other fields as needed.
+# Each user below is a completely independent configuration block.
+# To add a new user: Copy any user block below and paste it at the bottom.
+# Then modify the name and other fields as needed.
 # 
-# Users in this list will be created or updated to match.
-# Users removed from this list will be deleted (if remove_orphaned_users is true).
+# Each user can have different groups, permissions, and settings.
+# Users removed from this file will be deleted (if remove_orphaned_users is true).
 # 
 # NOTE: All users are automatically added to the 'ansible' group, which has
 #       read/write permissions to /opt/ansible (group ownership, mode 0775).
 # 
 # ============================================================================
 
+# Technical note: The 'users:' line below is required by the system.
+# Just ignore it and focus on adding individual user blocks below.
 users:
   # ========================================================================
-  # User 1 - Modify this user or copy this entire block to add more users
+  # USER 1 - Modify this user or copy this entire block to add more users
   # ========================================================================
   - name: my_user                                    # [REQUIRED] Username
     # groups: ['sudo']                               # [OPTIONAL] Groups to add user to (e.g., ['sudo', 'docker'])
@@ -44,7 +47,7 @@ users:
     # comment: "My user"                             # [OPTIONAL] User description
 
   # ========================================================================
-  # User 2 - Copy the block above, paste here, and modify
+  # USER 2 - Copy any user block above, paste here, and modify
   # ========================================================================
   # - name: another_user                             # [REQUIRED] Username
   #   # groups: ['sudo']                             # [OPTIONAL] Groups to add user to
@@ -54,7 +57,7 @@ users:
   #   # comment: "Another user"                       # [OPTIONAL] User description
 
   # ========================================================================
-  # User 3 - Copy the block above, paste here, and modify
+  # USER 3 - Copy any user block above, paste here, and modify
   # ========================================================================
   # - name: third_user                               # [REQUIRED] Username
   #   # groups: ['sudo']                             # [OPTIONAL] Groups to add user to
