@@ -239,15 +239,16 @@
         - hardening_ssh_allowed_sources is not defined or hardening_ssh_allowed_sources | length == 0
       failed_when: false
 
-    - name: Resolve hostnames to IP addresses for SSH whitelist
+    - name: Resolve hostnames to IP addresses for SSH whitelist (supports multiple IPs per hostname)
       shell: |
         SOURCE="{{ item }}"
         # Check if it's already an IP or CIDR (contains numbers and dots/slashes, no letters except in IPv6)
         if echo "$SOURCE" | grep -qE '^[0-9]|^[0-9a-fA-F:]*::|/[0-9]+$'; then
+          # It's already an IP/CIDR, return as-is
           echo "$SOURCE"
         else
-          # It's a hostname, resolve it
-          getent hosts "$SOURCE" | awk '{print $1}' | head -1 || echo "$SOURCE"
+          # It's a hostname, resolve ALL IPs (one per line)
+          getent hosts "$SOURCE" | awk '{print $1}' || echo ""
         fi
       register: resolved_sources
       loop: "{{ hardening_ssh_allowed_sources }}"
@@ -258,22 +259,31 @@
         - hardening_ssh_allowed_sources is defined
         - hardening_ssh_allowed_sources | length > 0
 
+    - name: Flatten resolved IPs (handle multiple IPs per hostname)
+      set_fact:
+        all_resolved_ips: "{{ all_resolved_ips | default([]) + [item.stdout | trim] | select('string') | list }}"
+      loop: "{{ resolved_sources.results | default([]) }}"
+      when: 
+        - item.stdout is defined
+        - item.stdout | trim != ""
+        - ansible_os_family == "Debian"
+
     - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL) - from whitelist
       ufw:
         rule: allow
         port: "{{ current_ssh_port }}"
         proto: tcp
-        from: "{{ item.stdout | trim }}"
+        from: "{{ item }}"
         state: enabled
-      loop: "{{ resolved_sources.results | default([]) }}"
+      loop: "{{ all_resolved_ips | default([]) | unique }}"
       loop_control:
-        label: "SSH from {{ item.item }} -> {{ item.stdout | trim }}"
+        label: "SSH from {{ item }}"
       when: 
         - ansible_os_family == "Debian"
         - hardening_ssh_allowed_sources is defined
         - hardening_ssh_allowed_sources | length > 0
-        - item.stdout is defined
-        - item.stdout | trim != ""
+        - all_resolved_ips is defined
+        - all_resolved_ips | length > 0
       failed_when: false
 
     - name: Allow SSH service name as backup (if port rule didn't work)
@@ -347,6 +357,89 @@
         - ansible_os_family == "Debian"
         - item != "OpenSSH"  # Already allowed above
       ignore_errors: yes
+
+    - name: Create SSH whitelist sources file for dynamic updates
+      copy:
+        content: |
+          # SSH Whitelist Sources
+          # This file is used by the UFW SSH whitelist update script
+          # One source per line (IP, CIDR, or hostname)
+          # Hostnames will be resolved to IPs every 5 minutes
+          {% for source in hardening_ssh_allowed_sources | default([]) %}
+          {{ source }}
+          {% endfor %}
+        dest: /etc/ufw/ssh-whitelist-sources.conf
+        mode: '0644'
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+        - hardening_ssh_whitelist_auto_update | default(true)
+
+    - name: Install UFW SSH whitelist update script
+      template:
+        src: ufw-ssh-whitelist-update.sh
+        dest: /usr/local/bin/ufw-ssh-whitelist-update.sh
+        mode: '0755'
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+        - hardening_ssh_whitelist_auto_update | default(true)
+
+    - name: Create systemd timer for UFW SSH whitelist updates
+      copy:
+        content: |
+          [Unit]
+          Description=Update UFW SSH whitelist from hostnames
+          Requires=ufw.service
+
+          [Timer]
+          OnBootSec=5min
+          OnUnitActiveSec=5min
+          AccuracySec=1min
+
+          [Install]
+          WantedBy=timers.target
+        dest: /etc/systemd/system/ufw-ssh-whitelist-update.timer
+        mode: '0644'
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+        - hardening_ssh_whitelist_auto_update | default(true)
+
+    - name: Create systemd service for UFW SSH whitelist updates
+      copy:
+        content: |
+          [Unit]
+          Description=Update UFW SSH whitelist from hostnames
+          After=network.target ufw.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/ufw-ssh-whitelist-update.sh
+          StandardOutput=journal
+          StandardError=journal
+        dest: /etc/systemd/system/ufw-ssh-whitelist-update.service
+        mode: '0644'
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+        - hardening_ssh_whitelist_auto_update | default(true)
+
+    - name: Enable and start UFW SSH whitelist update timer
+      systemd:
+        name: ufw-ssh-whitelist-update.timer
+        enabled: yes
+        daemon_reload: yes
+        state: started
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+        - hardening_ssh_whitelist_auto_update | default(true)
 
     - name: Allow SSH in firewalld BEFORE starting (CRITICAL)
       firewalld:

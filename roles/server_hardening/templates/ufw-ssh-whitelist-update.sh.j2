@@ -1,0 +1,90 @@
+#!/bin/bash
+# UFW SSH Whitelist Update Script
+# This script re-resolves hostnames and updates UFW rules every 5 minutes
+# Created by Ansible server_hardening role
+
+SSH_PORT="{{ current_ssh_port | default(22) }}"
+WHITELIST_FILE="/etc/ufw/ssh-whitelist-sources.conf"
+LOG_FILE="/var/log/ufw-ssh-whitelist-update.log"
+
+# Function to log messages
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+# Function to resolve hostname to IPs
+resolve_hostname() {
+    local hostname="$1"
+    # Check if it's already an IP or CIDR
+    if echo "$hostname" | grep -qE '^[0-9]|^[0-9a-fA-F:]*::|/[0-9]+$'; then
+        echo "$hostname"
+    else
+        # Resolve hostname to all IPs
+        getent hosts "$hostname" 2>/dev/null | awk '{print $1}' || echo ""
+    fi
+}
+
+# Read whitelist sources
+if [ ! -f "$WHITELIST_FILE" ]; then
+    log_message "ERROR: Whitelist file $WHITELIST_FILE not found"
+    exit 1
+fi
+
+# Get current allowed IPs from UFW (for this SSH port)
+CURRENT_IPS=$(ufw status numbered | grep -E "^\s*\[.*\]\s+${SSH_PORT}/tcp\s+ALLOW IN" | awk '{print $NF}' | sort -u)
+
+# Resolve all hostnames and collect IPs
+RESOLVED_IPS=""
+while IFS= read -r source || [ -n "$source" ]; do
+    # Skip empty lines and comments
+    [[ -z "$source" || "$source" =~ ^# ]] && continue
+    
+    # Resolve hostname or use IP/CIDR as-is
+    resolved=$(resolve_hostname "$source")
+    if [ -n "$resolved" ]; then
+        # Handle multiple IPs (one per line)
+        while IFS= read -r ip; do
+            [ -n "$ip" ] && RESOLVED_IPS="${RESOLVED_IPS}${ip}\n"
+        done <<< "$resolved"
+    fi
+done < "$WHITELIST_FILE"
+
+# Remove duplicates and sort
+RESOLVED_IPS=$(echo -e "$RESOLVED_IPS" | grep -v '^$' | sort -u)
+
+# Compare and update UFW rules
+NEW_IPS=$(echo -e "$RESOLVED_IPS" | sort -u)
+REMOVED_IPS=$(comm -23 <(echo "$CURRENT_IPS" | sort) <(echo -e "$NEW_IPS" | sort))
+ADDED_IPS=$(comm -13 <(echo "$CURRENT_IPS" | sort) <(echo -e "$NEW_IPS" | sort))
+
+# Remove IPs that are no longer valid
+if [ -n "$REMOVED_IPS" ]; then
+    while IFS= read -r ip; do
+        [ -z "$ip" ] && continue
+        # Find and delete the rule
+        RULE_NUM=$(ufw status numbered | grep -E "^\s*\[.*\]\s+${SSH_PORT}/tcp\s+ALLOW IN\s+$ip" | sed 's/^\s*\[\([0-9]*\)\].*/\1/' | head -1)
+        if [ -n "$RULE_NUM" ]; then
+            echo "y" | ufw delete "$RULE_NUM" >/dev/null 2>&1
+            log_message "Removed SSH rule for $ip (rule #$RULE_NUM)"
+        fi
+    done <<< "$REMOVED_IPS"
+fi
+
+# Add new IPs
+if [ -n "$ADDED_IPS" ]; then
+    while IFS= read -r ip; do
+        [ -z "$ip" ] && continue
+        ufw allow from "$ip" to any port "$SSH_PORT" proto tcp >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            log_message "Added SSH rule for $ip"
+        else
+            log_message "ERROR: Failed to add SSH rule for $ip"
+        fi
+    done <<< "$ADDED_IPS"
+fi
+
+# Log summary if there were changes
+if [ -n "$REMOVED_IPS" ] || [ -n "$ADDED_IPS" ]; then
+    log_message "Update complete. Current whitelist: $(echo -e "$NEW_IPS" | tr '\n' ' ')"
+fi
+

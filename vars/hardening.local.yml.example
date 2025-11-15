@@ -39,10 +39,11 @@ hardening_ssh_config_backup: true        # Backup SSH config before changes
 #   - "192.168.1.0/24"        # Allow from entire subnet
 #   - "10.0.0.5"              # Allow from specific IP
 #   - "2001:db8::/32"         # Allow from IPv6 subnet
-#   - "office.example.com"    # Hostname (will be resolved to IP at playbook runtime)
-#   - "vpn.company.com"       # Hostname (will be resolved to IP at playbook runtime)
-# Note: Hostnames are resolved to IP addresses when the playbook runs.
-# If a hostname resolves to multiple IPs, only the first one is used.
+#   - "office.example.com"    # Hostname (resolved to ALL IPs, updated every 5 min)
+#   - "vpn.company.com"       # Hostname (resolved to ALL IPs, updated every 5 min)
+# hardening_ssh_whitelist_auto_update: true  # Auto-update hostname IPs every 5 minutes (default: true)
+# Note: Hostnames are resolved to ALL IP addresses (not just the first one).
+# If auto-update is enabled, hostnames are re-resolved every 5 minutes to handle IP changes.
 # If not specified or empty, SSH will be allowed from anywhere
 
 # Firewall Configuration
