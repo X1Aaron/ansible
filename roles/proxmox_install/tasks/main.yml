@@ -28,6 +28,54 @@
     msg: "Proxmox VE requires Debian 11, 12, or 13. Detected: {{ ansible_os_family }}"
   when: ansible_os_family != "Debian"
 
+- name: Verify hostname resolves to non-loopback IP address
+  block:
+    - name: Get hostname
+      command: hostname
+      register: system_hostname
+      changed_when: false
+
+    - name: Check if hostname resolves to non-loopback IP address
+      command: hostname --ip-address
+      register: hostname_ip_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check if resolved IP is loopback
+      set_fact:
+        is_loopback: "{{ hostname_ip_check.stdout | default('') | regex_search('^(127\\.|::1|^localhost$)') is not none }}"
+        has_valid_ip: "{{ hostname_ip_check.stdout | default('') | length > 0 and hostname_ip_check.rc == 0 }}"
+
+    - name: Fail if hostname doesn't resolve to non-loopback IP
+      fail:
+        msg: |
+          ============================================================================
+          Hostname Resolution Error
+          ============================================================================
+          
+          The hostname '{{ system_hostname.stdout }}' must resolve to a non-loopback IP address.
+          
+          Current resolution: {{ hostname_ip_check.stdout | default('FAILED - hostname does not resolve') }}
+          
+          According to Proxmox documentation, the hostname must resolve to a non-loopback IP
+          (not 127.0.0.1, ::1, or localhost).
+          
+          Fix by adding an entry to /etc/hosts:
+          Example: 192.168.1.100  {{ system_hostname.stdout }} {{ system_hostname.stdout }}.local
+          
+          Or configure DNS to resolve the hostname to a non-loopback IP.
+          
+          Test with: hostname --ip-address
+          (should return a non-loopback IP address)
+          
+          See: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie
+          ============================================================================
+      when:
+        - or
+        - not has_valid_ip | default(false) | bool
+        - is_loopback | default(false) | bool
+        - hostname_ip_check.rc != 0
+
 - name: Map Debian version to Proxmox release
   set_fact:
     proxmox_release_mapped: >-
@@ -100,16 +148,26 @@
 
 - name: Install prerequisites (only if not installed)
   when: proxmox_installed.rc != 0
-  apt:
-    name:
-      - curl
-      - wget
-      - gnupg
-      - ca-certificates
-    state: present
-    update_cache: yes
-    cache_valid_time: 0
-    environment: "{{ apt_environment | default({}) }}"
+  block:
+    - name: Ensure SSH server is installed (required prerequisite)
+      apt:
+        name: openssh-server
+        state: present
+        update_cache: yes
+        cache_valid_time: 0
+        environment: "{{ apt_environment | default({}) }}"
+
+    - name: Install other prerequisites
+      apt:
+        name:
+          - curl
+          - wget
+          - gnupg
+          - ca-certificates
+        state: present
+        update_cache: yes
+        cache_valid_time: 0
+        environment: "{{ apt_environment | default({}) }}"
 
 - name: Setup Proxmox repository (only if not installed)
   when: proxmox_installed.rc != 0
@@ -165,6 +223,14 @@
       apt:
         update_cache: yes
         cache_valid_time: 0
+      when: not repo_file_exists.stat.exists or (existing_repo_config.content | b64decode | default('') | regex_search('Suites:\s*' + proxmox_release_mapped) is not defined)
+
+    - name: Full upgrade after adding Proxmox repository (as per Proxmox documentation)
+      apt:
+        upgrade: dist
+        autoremove: yes
+        cache_valid_time: 0
+        environment: "{{ apt_environment | default({}) }}"
       when: not repo_file_exists.stat.exists or (existing_repo_config.content | b64decode | default('') | regex_search('Suites:\s*' + proxmox_release_mapped) is not defined)
 
     - name: Verify Proxmox packages are available
