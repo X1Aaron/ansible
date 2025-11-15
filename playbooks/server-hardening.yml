@@ -4,7 +4,9 @@
   become: yes
   vars_files:
     # Load your hardening configuration from this file
-    # Edit vars/hardening.local.yml and uncomment/modify the examples
+    # This file is NOT in git - it stays on your server only
+    # Create it: cp vars/hardening.local.yml.example vars/hardening.local.yml
+    # Then edit it - uncomment and modify the examples
     - ../vars/hardening.local.yml
   
   roles:

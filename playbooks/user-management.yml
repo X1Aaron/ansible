@@ -4,7 +4,9 @@
   become: yes
   vars_files:
     # Load ALL your user variables from this ONE file
-    # Edit vars/users.local.yml and uncomment/modify the examples
+    # This file is NOT in git - it stays on your server only
+    # Create it: cp vars/users.local.yml.example vars/users.local.yml
+    # Then edit it - uncomment and modify the examples
     - ../vars/users.local.yml
   
   roles:

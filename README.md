@@ -17,34 +17,37 @@ This repository contains Ansible automation playbooks for server management task
 
 ## How It Works
 
-**Configuration Files:**
-- All configuration files are in `vars/*.local.yml`
-- These files are in git and sync with GitHub
-- Each file has commented examples at the top
-- **Just uncomment and modify what you need!**
+**Template Files vs Your Config:**
+- **`.example` files** → In git, templates with commented examples (safe to sync)
+- **`.local.yml` files** → Git-ignored, your actual config (stays on server)
 
 **Configuration Files:**
-- `vars/users.local.yml` - User management configuration
-- `vars/hardening.local.yml` - Server hardening configuration
-- `vars/proxmox.local.yml` - Proxmox installation configuration (optional)
-- `vars/secrets.local.yml` - Sensitive secrets (passwords, API keys, etc.)
+- `vars/users.local.yml.example` - Template with commented examples
+- `vars/hardening.local.yml.example` - Template with commented examples
+- `vars/proxmox.local.yml.example` - Template with commented examples (optional)
+- `vars/secrets.local.yml.example` - Template with commented examples
 
 **How to Configure:**
-1. **Edit the `.local.yml` file:**
+1. **Copy the example file (first time only):**
+   ```bash
+   cp vars/users.local.yml.example vars/users.local.yml
+   ```
+
+2. **Edit your `.local.yml` file:**
    ```bash
    nano vars/users.local.yml
    ```
 
-2. **Uncomment and modify the examples:**
+3. **Uncomment and modify the examples:**
    - All examples are commented out with `#`
    - Find what you need, uncomment it, and modify the values
    - You can copy/paste examples and uncomment them
 
-3. **That's it!** The files are already in git, so they'll sync with your server
+4. **That's it!** Your `.local.yml` file is git-ignored, so it won't be overwritten when you sync
 
 **Example:**
 ```yaml
-# In vars/users.local.yml, you'll see:
+# In vars/users.local.yml (copied from .example), you'll see:
 users: []
 # - name: my_user
 #   groups: ['sudo']
@@ -106,8 +109,9 @@ Automate user account creation, modification, and deletion on local servers.
 
 #### Quick Start
 
-1. **Edit the configuration file:**
+1. **Copy the example file (first time only):**
    ```bash
+   cp vars/users.local.yml.example vars/users.local.yml
    nano vars/users.local.yml
    ```
 
@@ -271,8 +275,9 @@ Automate server security hardening using industry best practices.
 
 #### Quick Start
 
-1. **Edit the configuration file:**
+1. **Copy the example file (first time only):**
    ```bash
+   cp vars/hardening.local.yml.example vars/hardening.local.yml
    nano vars/hardening.local.yml
    ```
 
@@ -509,8 +514,9 @@ Automate Proxmox VE installation on Debian-based systems.
 
 #### Quick Start
 
-1. **Edit the configuration file (optional):**
+1. **Copy the example file (optional, first time only):**
    ```bash
+   cp vars/proxmox.local.yml.example vars/proxmox.local.yml
    nano vars/proxmox.local.yml
    ```
    - This file is optional - defaults will be used if not configured
@@ -620,17 +626,20 @@ systemctl enable serial-getty@ttyS0.service
 
 ### Storing Secrets Securely
 
-This repository includes a file for storing sensitive information like passwords.
+This repository includes a template file for storing sensitive information like passwords.
 
-**Location:** `vars/secrets.local.yml`
+**Location:** `vars/secrets.local.yml` (git-ignored, your actual config)
 
 This file:
-- ✅ **Is tracked in git** (with commented examples)
-- ✅ **Contains sensitive information** - be careful when syncing
+- ✅ **Template is in git** (`vars/secrets.local.yml.example` with commented examples)
+- ✅ **Your actual file is git-ignored** - stays on server only
 - ⚠️ **Restrict permissions:** `chmod 600 vars/secrets.local.yml`
 
 **Setup:**
 ```bash
+# Copy the example file (first time only)
+cp vars/secrets.local.yml.example vars/secrets.local.yml
+
 # Edit the secrets file
 nano vars/secrets.local.yml
 
