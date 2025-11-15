@@ -48,6 +48,17 @@ git pull origin main
 
 For detailed instructions on automated syncing, cron jobs, and best practices, see [docs/SERVER_SETUP.md](docs/SERVER_SETUP.md).
 
+## Vault Setup on Server
+
+The vault password file (`.vault_pass`) has been created locally but needs to be transferred to your server securely.
+
+**Quick Setup:**
+1. Transfer `.vault_pass` to your server (see `VAULT_PASSWORD.txt` for the password)
+2. On your server, run: `./setup-vault.sh`
+3. Done! Playbooks will automatically use the vault.
+
+For detailed server setup instructions, see [docs/VAULT_SERVER_SETUP.md](docs/VAULT_SERVER_SETUP.md).
+
 ## Prerequisites
 
 - Ansible installed on your system

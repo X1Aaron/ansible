@@ -5,6 +5,8 @@
 *.vault
 vault/*.yml
 !vault/.gitkeep
+VAULT_PASSWORD.txt
+generate-vault-password.ps1
 
 # Python
 __pycache__/

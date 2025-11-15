@@ -2,7 +2,7 @@
 # Script to sync Ansible repository on server
 # Usage: ./sync-repo.sh
 
-REPO_DIR="/path/to/ansible"  # Update this path to your repository location
+REPO_DIR="/opt/ansible"  # Update this path to your repository location
 
 if [ -d "$REPO_DIR" ]; then
     cd "$REPO_DIR"
