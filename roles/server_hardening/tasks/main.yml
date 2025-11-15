@@ -261,11 +261,10 @@
 
     - name: Flatten resolved IPs (handle multiple IPs per hostname)
       set_fact:
-        all_resolved_ips: "{{ all_resolved_ips | default([]) + [item.stdout | trim] | select('string') | list }}"
+        all_resolved_ips: "{{ all_resolved_ips | default([]) + item.stdout_lines | default([]) }}"
       loop: "{{ resolved_sources.results | default([]) }}"
       when: 
         - item.stdout is defined
-        - item.stdout | trim != ""
         - ansible_os_family == "Debian"
 
     - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL) - from whitelist
