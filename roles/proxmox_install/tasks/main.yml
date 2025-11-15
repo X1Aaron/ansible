@@ -133,7 +133,6 @@
       debug:
         msg: "Available Proxmox packages: {{ proxmox_package_check.stdout_lines }}"
       when: proxmox_package_check.stdout_lines | length > 0
-      verbosity: 1
 
     - name: Install Proxmox VE packages
       apt:
