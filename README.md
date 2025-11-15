@@ -23,6 +23,53 @@ This repository contains Ansible automation playbooks for server management task
 
 Edit `*.local.yml` files with your server-specific data. These files are in `.gitignore` and will never sync to GitHub.
 
+### How to Know Which Files to Edit
+
+**Quick Rule:**
+- **File ending in `.example`** = Template (DO NOT EDIT - will be overwritten)
+- **File ending in `.local.yml`** = Your actual config (SAFE TO EDIT - git-ignored)
+
+**Template Files (DO NOT EDIT):**
+- `vars/users.local.yml.example` ❌ Don't edit
+- `vars/hardening.local.yml.example` ❌ Don't edit
+- `vars/proxmox.local.yml.example` ❌ Don't edit
+- `vars/secrets.local.yml.example` ❌ Don't edit
+
+**Your Config Files (SAFE TO EDIT):**
+- `vars/users.local.yml` ✅ Edit this
+- `vars/hardening.local.yml` ✅ Edit this
+- `vars/proxmox.local.yml` ✅ Edit this
+- `vars/secrets.local.yml` ✅ Edit this
+
+**Quick Check:**
+```bash
+# See which files are git-ignored (your actual config files)
+git check-ignore vars/*.local.yml
+
+# See which files are in git (template files)
+git ls-files vars/*.example
+```
+
+**Visual Check:**
+- Template files have `⚠️ TEMPLATE FILE - DO NOT EDIT` at the top
+- Your config files don't have this warning (they're safe to edit)
+
+**Workflow:**
+1. **First time setup:** Copy template to create your config
+   ```bash
+   cp vars/users.local.yml.example vars/users.local.yml
+   ```
+
+2. **Edit your config:** Always edit the `.local.yml` file (without `.example`)
+   ```bash
+   nano vars/users.local.yml  # ✅ Safe to edit
+   ```
+
+3. **Never edit templates:** Don't edit `.example` files
+   ```bash
+   nano vars/users.local.yml.example  # ❌ Will be overwritten!
+   ```
+
 ## Prerequisites
 
 - Ansible installed
@@ -291,6 +338,159 @@ All options are enabled by default with secure settings. Disable any section by 
 #### Security Features
 
 - **SSH:** Root login disabled, password auth disabled, key-only access
+- **Firewall:** UFW (Debian/Ubuntu) or firewalld (RHEL/CentOS) with SSH whitelist support
+- **Fail2ban:** Brute force protection
+- **Automatic Updates:** Security updates installed automatically
+- **Kernel Hardening:** Network security parameters
+- **Service Management:** Unnecessary services disabled
+
+#### Modular Hardening Playbooks
+
+The hardening has been broken down into separate, testable playbooks so you can identify which component is causing issues.
+
+**Available Playbooks:**
+1. **`hardening-updates.yml`** - System updates and automatic security updates (safest)
+2. **`hardening-ssh.yml`** - SSH configuration hardening (⚠️ can lock you out)
+3. **`hardening-firewall.yml`** - Firewall (UFW) configuration (⚠️ **MOST LIKELY CULPRIT** for boot/login issues)
+4. **`hardening-fail2ban.yml`** - Fail2ban installation and configuration
+5. **`hardening-kernel.yml`** - Kernel parameter hardening
+6. **`hardening-services.yml`** - Disable unnecessary services
+7. **`hardening-ntp.yml`** - Time synchronization (chrony/NTP)
+8. **`hardening-permissions.yml`** - File permission restrictions
+9. **`hardening-audit.yml`** - Audit logging (auditd)
+10. **`hardening-ipv6.yml`** - Disable IPv6 (if configured)
+
+**Testing Strategy:**
+```bash
+# Step 1: Test safest components first
+ansible-playbook playbooks/hardening-updates.yml
+ansible-playbook playbooks/hardening-ntp.yml
+ansible-playbook playbooks/hardening-permissions.yml
+ansible-playbook playbooks/hardening-audit.yml
+
+# Step 2: Test network-related components
+ansible-playbook playbooks/hardening-kernel.yml
+ansible-playbook playbooks/hardening-firewall.yml  # ⚠️ Test carefully
+
+# Step 3: Test SSH and security components
+ansible-playbook playbooks/hardening-ssh.yml  # ⚠️ Can lock you out
+ansible-playbook playbooks/hardening-fail2ban.yml
+```
+
+**Quick Rollback:**
+```bash
+# Remove all hardening changes
+ansible-playbook playbooks/remove-hardening.yml
+```
+
+**Manual Removal from Recovery Mode:**
+```bash
+# 1. Remount filesystem
+mount -o remount,rw /
+
+# 2. Disable UFW firewall
+ufw disable
+
+# 3. Restore SSH config (if backup exists)
+if [ -f /etc/ssh/sshd_config.backup ]; then
+  cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
+  systemctl restart ssh
+fi
+
+# 4. Stop and disable fail2ban
+systemctl stop fail2ban
+systemctl disable fail2ban
+
+# 5. Remove UFW whitelist scripts and timers
+rm -f /usr/local/bin/ufw-ssh-whitelist-update.sh
+rm -f /etc/ufw/ssh-whitelist-sources.conf
+systemctl stop ufw-ssh-whitelist-update.timer
+systemctl disable ufw-ssh-whitelist-update.timer
+rm -f /etc/systemd/system/ufw-ssh-whitelist-update.timer
+rm -f /etc/systemd/system/ufw-ssh-whitelist-update.service
+systemctl daemon-reload
+```
+
+#### Troubleshooting SSH Access Issues
+
+**Quick Diagnosis:**
+```bash
+# Check if SSH service is running
+systemctl status ssh
+
+# Check UFW firewall status
+ufw status verbose
+
+# Check SSH port
+grep -E '^Port|^#Port' /etc/ssh/sshd_config
+
+# Check if SSH is listening
+ss -tlnp | grep :22
+```
+
+**Quick Fixes:**
+
+1. **Enable SSH service:**
+   ```bash
+   systemctl enable ssh
+   systemctl start ssh
+   ```
+
+2. **Allow SSH in UFW:**
+   ```bash
+   SSH_PORT=$(grep -E '^Port|^#Port' /etc/ssh/sshd_config | tail -1 | sed 's/^#Port/Port/' | awk '{print $2}')
+   SSH_PORT=${SSH_PORT:-22}
+   ufw allow $SSH_PORT/tcp
+   ufw reload
+   ```
+
+3. **Temporarily disable UFW:**
+   ```bash
+   ufw disable
+   ```
+
+4. **Restore SSH config from backup:**
+   ```bash
+   cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
+   systemctl restart ssh
+   ```
+
+**SSH Works in Recovery Mode But Not Normal Boot:**
+```bash
+# Enable SSH and network services
+systemctl enable ssh
+systemctl enable sshd
+systemctl enable networking
+systemctl enable NetworkManager
+
+# Check boot logs
+journalctl -b -1 | grep -iE 'ssh|network|error|fail' | tail -50
+```
+
+**Can't Login at Console on Normal Boot:**
+```bash
+# Check getty services (console login)
+systemctl list-units | grep getty
+systemctl enable getty@tty1.service
+
+# Check failed services
+systemctl list-units --state=failed
+
+# Check boot logs
+journalctl -b -1 | grep -iE "timeout|hang|wait|fail" | tail -30
+```
+
+**Adding Your IP to Whitelist (from recovery mode):**
+```bash
+# Remount filesystem
+mount -o remount,rw /
+
+# Add your IP to UFW (replace YOUR_IP with your actual IP)
+ufw allow from YOUR_IP to any
+
+# Reload UFW
+ufw reload
+```
 
 ---
 
@@ -392,6 +592,121 @@ proxmox_network_config:
 - **Firewall:** Configure firewall rules for Proxmox ports (8006, 5900-5999 for VNC, etc.)
 
 **Note:** After Proxmox installation, consider running the server-hardening playbook to secure SSH and configure firewall rules.
+
+#### Troubleshooting Proxmox Installation
+
+**SSH Access Issues After Proxmox Installation:**
+
+If you can't access SSH after booting into the PVE kernel:
+
+1. **Access Recovery Mode:**
+   - Boot the system
+   - At GRUB menu, select the PVE kernel entry
+   - Press `e` to edit
+   - Find the line starting with `linux` and add `systemd.unit=rescue.target` at the end
+   - Press `Ctrl+X` to boot into recovery mode
+
+2. **Enable SSH service:**
+   ```bash
+   mount -o remount,rw /
+   systemctl enable ssh
+   systemctl start ssh
+   ```
+
+3. **Check network:**
+   ```bash
+   systemctl enable networking
+   systemctl enable NetworkManager
+   ip addr show
+   ```
+
+4. **Exit recovery mode:**
+   ```bash
+   exit
+   ```
+
+**Console Login Not Working:**
+```bash
+# Enable getty services
+systemctl enable getty@tty1.service
+systemctl enable serial-getty@ttyS0.service
+```
+
+---
+
+### Storing Secrets Securely
+
+This repository uses a **git-ignored** file to store sensitive information like passwords.
+
+**Location:** `vars/secrets.local.yml`
+
+This file is:
+- ✅ **NOT tracked in git** (in `.gitignore`)
+- ✅ **Never overwritten** by `git pull`
+- ✅ **Stays on your server only**
+
+**Setup:**
+```bash
+# Create the secrets file
+cp vars/secrets.local.yml.example vars/secrets.local.yml
+chmod 600 vars/secrets.local.yml  # Restrict permissions
+
+# Edit with your secrets
+nano vars/secrets.local.yml
+```
+
+**Security Best Practices:**
+1. **Restrict file permissions:**
+   ```bash
+   chmod 600 vars/secrets.local.yml
+   ```
+
+2. **Never commit this file:**
+   - It's already in `.gitignore`
+   - Double-check before committing: `git status` should NOT show this file
+
+3. **Use password hashes when possible:**
+   ```bash
+   # Generate a password hash
+   python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))"
+   ```
+
+4. **Backup separately:**
+   - Don't rely on git for backups of secrets
+   - Use secure password managers or encrypted storage
+
+**Using Secrets in Playbooks:**
+```yaml
+- name: My Playbook
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/secrets.local.yml
+  
+  tasks:
+    - name: Use root password
+      # Use {{ root_password }} in your tasks
+```
+
+**What to Store Here:**
+- Root password
+- Database passwords
+- API keys
+- Any other sensitive credentials
+
+**What NOT to Store:**
+- User passwords (use `vars/users.local.yml` with password hashes)
+- SSH keys (use `vars/users.local.yml` with `ssh_public_key`)
+- Public configuration (use regular `.local.yml` files)
+
+**Verification:**
+```bash
+git status
+# vars/secrets.local.yml should NOT appear
+
+git check-ignore vars/secrets.local.yml
+# Should output: vars/secrets.local.yml
+```
 
 ---
 
