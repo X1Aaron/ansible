@@ -13,6 +13,16 @@ if [ -d "$REPO_DIR" ]; then
         git config --global --add safe.directory "$REPO_DIR"
     fi
     
+    # Fix ownership if user doesn't have write access to .git directory
+    if [ ! -w ".git" ] || [ ! -w ".git/FETCH_HEAD" ] 2>/dev/null; then
+        echo "Fixing repository ownership (requires sudo)..."
+        if sudo chown -R "$USER:$USER" "$REPO_DIR" 2>/dev/null; then
+            echo "  ✓ Ownership fixed"
+        else
+            echo "  ⚠️  Could not fix ownership automatically. Run: sudo chown -R $USER:$USER $REPO_DIR"
+        fi
+    fi
+    
     git fetch origin
     
     # Check if there are uncommitted changes
