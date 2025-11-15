@@ -21,7 +21,7 @@
         create_home: "{{ item.create_home | default(true) }}"
         comment: "{{ item.comment | default(omit) }}"
         password: "{{ item.password | default(omit) }}"
-        password_lock: "{{ item.password_lock | default(false) }}"
+        password_lock: "{{ item.password_lock | default(item.password is not defined or item.password == '') }}"
         system: "{{ item.system | default(false) }}"
         uid: "{{ item.uid | default(omit) }}"
         generate_ssh_key: "{{ item.generate_ssh_key | default(false) }}"

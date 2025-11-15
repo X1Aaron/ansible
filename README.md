@@ -146,9 +146,12 @@ remove_home_on_delete: false  # Remove home directory when deleting users
 
 #### Passwords
 
+**Security Note:** If you don't set a password, the account is **locked** and cannot be logged into with a password. This is secure - the account can only be accessed via SSH keys (if configured).
+
 **SSH Keys vs Passwords:**
-- SSH keys: No password needed for SSH access
+- SSH keys: No password needed for SSH access (recommended)
 - Passwords: Optional, useful for console login or sudo
+- **No password = Account locked** (password authentication disabled)
 
 **Generate Password Hash:**
 ```bash
