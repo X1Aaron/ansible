@@ -48,24 +48,39 @@
 
 - name: Automatically grant /opt/ansible access to all users
   block:
+    - name: Ensure ansible group exists
+      group:
+        name: ansible
+        state: present
+      failed_when: false
+
+    - name: Add all users to ansible group
+      user:
+        name: "{{ item.name }}"
+        groups: "{{ (item.groups | default([])) + ['ansible'] | unique | list }}"
+        append: true
+      loop: "{{ users | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      ignore_errors: yes
+
     - name: Ensure /opt/ansible directory exists
       file:
         path: /opt/ansible
         state: directory
-        mode: '0755'
+        mode: '0775'
+        owner: root
+        group: ansible
       failed_when: false
 
-    - name: Set ownership and permissions for /opt/ansible for each user
+    - name: Set group ownership and permissions for /opt/ansible
       file:
         path: /opt/ansible
         state: directory
-        owner: "{{ item.name }}"
-        group: "{{ item.name }}"
-        mode: '0755'
+        owner: root
+        group: ansible
+        mode: '0775'
         recurse: false
-      loop: "{{ users | default([]) }}"
-      loop_control:
-        label: "{{ item.name }}: /opt/ansible"
       ignore_errors: yes
 
 - name: Set directory permissions for users
