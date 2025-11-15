@@ -119,7 +119,66 @@ exit
 3. **SSH port changed:** If hardening changed the port, make sure UFW allows that port
 4. **Network interface down:** Network might not be coming up with new kernel
 
+## Adding Your IP to the Whitelist (from recovery mode)
+
+If you forgot to add your IP to the whitelist before running hardening:
+
+### Option 1: Manually add your IP to UFW (quick fix)
+```bash
+# In recovery mode, remount filesystem first:
+mount -o remount,rw /
+
+# Find your current IP (from another machine)
+# Then add it to UFW (replace YOUR_IP with your actual IP)
+ufw allow from YOUR_IP
+
+# Or allow all ports from your IP (trusted source)
+ufw allow from YOUR_IP to any
+
+# Reload UFW
+ufw reload
+
+# Exit recovery mode
+exit
+```
+
+### Option 2: Update hardening config and re-run playbook
+```bash
+# In recovery mode, remount filesystem first:
+mount -o remount,rw /
+
+# Edit the hardening config file
+nano /opt/ansible/vars/hardening.local.yml
+
+# Add your IP to the whitelist:
+# hardening_ssh_allowed_sources:
+#   - "YOUR_IP_ADDRESS"
+#   - "YOUR_IP_ADDRESS/32"  # Or with CIDR notation
+
+# Exit recovery mode
+exit
+
+# After booting normally, re-run hardening playbook
+cd /opt/ansible
+ansible-playbook playbooks/server-hardening.yml
+```
+
+**To find your IP address:**
+- From your local machine: `curl ifconfig.me` or `curl ipinfo.io/ip`
+- Or check your router/network admin panel
+
 ## Prevention
+
+**Before running server hardening, always:**
+1. Add your IP to `vars/hardening.local.yml`:
+   ```yaml
+   hardening_ssh_allowed_sources:
+     - "YOUR_IP_ADDRESS"
+   ```
+2. Then run the hardening playbook:
+   ```bash
+   ansible-playbook playbooks/server-hardening.yml
+   ```
 
 After fixing SSH access, run the server hardening playbook again to ensure SSH is properly configured:
 ```bash
