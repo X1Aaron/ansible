@@ -446,7 +446,7 @@
 
     - name: Install UFW SSH whitelist update script
       template:
-        src: ufw-ssh-whitelist-update.sh
+        src: ufw-ssh-whitelist-update.sh.j2
         dest: /usr/local/bin/ufw-ssh-whitelist-update.sh
         mode: '0755'
       when:
