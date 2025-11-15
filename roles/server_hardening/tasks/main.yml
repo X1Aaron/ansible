@@ -267,16 +267,14 @@
         - item.stdout is defined
         - ansible_os_family == "Debian"
 
-    - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL) - from whitelist
+    - name: Allow all ports from whitelisted IPs (trusted sources - SSH, Proxmox, HTTP, HTTPS, etc.)
       ufw:
         rule: allow
-        port: "{{ current_ssh_port }}"
-        proto: tcp
         from: "{{ item }}"
         state: enabled
       loop: "{{ all_resolved_ips | default([]) | unique }}"
       loop_control:
-        label: "SSH from {{ item }}"
+        label: "All ports from {{ item }} (trusted source)"
       when: 
         - ansible_os_family == "Debian"
         - hardening_ssh_allowed_sources is defined

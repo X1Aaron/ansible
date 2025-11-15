@@ -30,9 +30,10 @@ if [ ! -f "$WHITELIST_FILE" ]; then
     exit 1
 fi
 
-# Get current allowed IPs from UFW (for this SSH port)
+# Get current allowed IPs from UFW (all ports, not just SSH)
 # Only get IPs that were added by this script (not the default "Anywhere" rules)
-CURRENT_IPS=$(ufw status numbered | grep -E "^\s*\[.*\]\s+${SSH_PORT}/tcp\s+ALLOW IN" | grep -v "Anywhere" | awk '{print $NF}' | sort -u)
+# Look for rules that allow from specific IPs (no port specified = all ports)
+CURRENT_IPS=$(ufw status numbered | grep -E "^\s*\[.*\]\s+ALLOW IN\s+" | grep -v "Anywhere" | grep -v "/tcp" | grep -v "/udp" | awk '{print $NF}' | sort -u)
 
 # Resolve all hostnames and collect IPs
 RESOLVED_IPS=""
@@ -62,24 +63,25 @@ ADDED_IPS=$(comm -13 <(echo "$CURRENT_IPS" | sort) <(echo -e "$NEW_IPS" | sort))
 if [ -n "$REMOVED_IPS" ]; then
     while IFS= read -r ip; do
         [ -z "$ip" ] && continue
-        # Find and delete the rule
-        RULE_NUM=$(ufw status numbered | grep -E "^\s*\[.*\]\s+${SSH_PORT}/tcp\s+ALLOW IN\s+$ip" | sed 's/^\s*\[\([0-9]*\)\].*/\1/' | head -1)
+        # Find and delete the rule (allows all ports from this IP)
+        RULE_NUM=$(ufw status numbered | grep -E "^\s*\[.*\]\s+ALLOW IN\s+$ip" | grep -v "/tcp" | grep -v "/udp" | sed 's/^\s*\[\([0-9]*\)\].*/\1/' | head -1)
         if [ -n "$RULE_NUM" ]; then
             echo "y" | ufw delete "$RULE_NUM" >/dev/null 2>&1
-            log_message "Removed SSH rule for $ip (rule #$RULE_NUM)"
+            log_message "Removed whitelist rule for $ip (all ports, rule #$RULE_NUM)"
         fi
     done <<< "$REMOVED_IPS"
 fi
 
-# Add new IPs
+# Add new IPs (allow all ports - trusted source)
 if [ -n "$ADDED_IPS" ]; then
     while IFS= read -r ip; do
         [ -z "$ip" ] && continue
-        ufw allow from "$ip" to any port "$SSH_PORT" proto tcp >/dev/null 2>&1
+        # Allow all ports from this trusted IP
+        ufw allow from "$ip" >/dev/null 2>&1
         if [ $? -eq 0 ]; then
-            log_message "Added SSH rule for $ip"
+            log_message "Added whitelist rule for $ip (all ports - trusted source)"
         else
-            log_message "ERROR: Failed to add SSH rule for $ip"
+            log_message "ERROR: Failed to add whitelist rule for $ip"
         fi
     done <<< "$ADDED_IPS"
 fi
