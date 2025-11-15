@@ -144,6 +144,7 @@ remove_home_on_delete: false  # Remove home directory when deleting users
 - `password`: Password hash (optional - see below)
 - `password_lock`: Lock password (default: `false`)
 - `sudo_passwordless`: Enable passwordless sudo (default: `false`, recommended: `true` when using SSH keys)
+- `directories`: List of directories to grant access to (optional - see below)
 
 #### Sudo Configuration
 
@@ -202,6 +203,43 @@ users:
 ```
 
 The key is automatically added to `~/.ssh/authorized_keys`.
+
+#### Directory Permissions
+
+Grant users access to specific directories by setting ownership and permissions:
+
+```yaml
+users:
+  - name: aaron
+    groups: ['sudo']
+    ssh_public_key: "ssh-rsa AAAAB3..."
+    directories:
+      - path: /opt/ansible
+        owner: USER      # Use "USER" to automatically use the username
+        group: USER      # Or specify a group name like "ansible"
+        mode: '0755'     # Permissions (optional)
+        recurse: false   # Apply recursively (optional, default: false)
+```
+
+**Options:**
+- `path`: Directory path (required)
+- `owner`: Owner username, or `"USER"` to use the user's name (optional)
+- `group`: Group name, or `"USER"` to use the user's name (optional)
+- `mode`: Permissions in octal format (e.g., `'0755'`, `'0775'`) (optional)
+- `recurse`: Apply ownership/permissions recursively (default: `false`)
+
+**Example for /opt/ansible:**
+```yaml
+users:
+  - name: aaron
+    directories:
+      - path: /opt/ansible
+        owner: USER
+        group: USER
+        mode: '0755'
+```
+
+This will set `/opt/ansible` to be owned by user `aaron` with group `aaron` and permissions `755`.
 
 ---
 

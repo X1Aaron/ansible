@@ -25,6 +25,19 @@ users:
     password_lock: false
     # Sudo configuration (only applies if user is in 'sudo' group)
     sudo_passwordless: true  # Set to true for passwordless sudo (recommended with SSH keys)
+    
+    # Directory permissions (optional - grant access to specific directories)
+    # Use "USER" to automatically use the username, or specify a username/group directly
+    # directories:
+    #   - path: /opt/ansible
+    #     owner: USER                  # Use "USER" to set owner to this user's name
+    #     group: USER                  # Use "USER" to set group to this user's name
+    #     mode: '0755'                  # Permissions (optional)
+    #     recurse: false                # Apply recursively (optional, default: false)
+    #   - path: /opt/myproject
+    #     owner: USER                   # Or use "USER" for automatic username
+    #     group: ansible                # Or set to a shared group name
+    #     mode: '0775'                  # Group writable
 
 # Options
 remove_orphaned_users: false  # Set to true to delete users not in the 'users' list above
