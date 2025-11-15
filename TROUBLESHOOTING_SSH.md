@@ -112,6 +112,61 @@ exit
 # Then the system will continue normal boot
 ```
 
+## Can't Login at Console on Normal Boot
+
+If you can't log in even at the console on normal boot (but recovery mode works):
+
+### Check if system is hanging during boot
+```bash
+# From recovery mode, check boot logs
+mount -o remount,rw /
+
+# Check what services failed to start
+systemctl list-units --state=failed
+
+# Check boot process for hangs
+journalctl -b -1 | grep -iE "timeout|hang|wait|fail" | tail -30
+
+# Check if network is waiting/hanging
+journalctl -b -1 | grep -iE "network.*wait|network.*timeout|network.*fail" | tail -20
+
+# Check systemd target status
+systemctl get-default
+systemctl list-units --type=target --state=failed
+```
+
+### Check if console/login service is running
+```bash
+# Check getty services (console login)
+systemctl list-units | grep getty
+
+# Enable getty services
+systemctl enable getty@tty1.service
+systemctl enable serial-getty@ttyS0.service
+
+# Check if login/pam is configured
+ls -la /etc/pam.d/login
+```
+
+### Check network interface configuration
+```bash
+# Check network config
+cat /etc/network/interfaces
+
+# If network is misconfigured, it might hang boot
+# Make sure interface has proper configuration
+```
+
+### Most common fix: Network hanging boot
+```bash
+# If network is causing boot to hang, disable network wait
+systemctl disable systemd-networkd-wait-online.service
+
+# Or configure network to not block boot
+mkdir -p /etc/systemd/system/network-online.target.wants
+# Edit network service to not require network-online.target
+```
+
 ## SSH Works in Recovery Mode But Not Normal Boot
 
 If SSH works in recovery mode but not with the regular PVE kernel:
