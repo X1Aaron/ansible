@@ -137,14 +137,10 @@ remove_home_on_delete: false  # Remove home directory when deleting users
 
 - `name`: Username (required)
 - `groups`: List of groups (e.g., `['sudo', 'docker']`)
-- `shell`: Login shell (default: `/bin/bash`)
-- `comment`: User description
-- `create_home`: Create home directory (default: `true`)
 - `ssh_public_key`: Your SSH public key (recommended)
-- `password`: Password hash (optional - see below)
-- `password_lock`: Lock password (default: `false`)
-- `sudo_passwordless`: Enable passwordless sudo (default: `false`, recommended: `true` when using SSH keys)
-- `directories`: List of directories to grant access to (optional - see below)
+- `sudo_passwordless`: Enable passwordless sudo (only if user is in 'sudo' group, recommended: `true` when using SSH keys)
+- `password`: Password hash (optional - for console login, see below)
+- `comment`: User description (optional)
 
 #### Sudo Configuration
 
@@ -204,49 +200,12 @@ users:
 
 The key is automatically added to `~/.ssh/authorized_keys`.
 
-#### Directory Permissions
+#### Automatic `/opt/ansible` Access
 
-**Automatic `/opt/ansible` Access:**
 All users are automatically granted access to `/opt/ansible`:
 - Users are automatically added to the `ansible` group
 - `/opt/ansible` is owned by `root:ansible` with `775` permissions (group writable)
 - No configuration needed - it's automatic for all users!
-
-**Additional Directory Permissions:**
-You can grant users access to other specific directories:
-
-```yaml
-users:
-  - name: aaron
-    groups: ['sudo']
-    ssh_public_key: "ssh-rsa AAAAB3..."
-    directories:
-      - path: /opt/myproject
-        owner: USER      # Use "USER" to automatically use the username
-        group: ansible   # Or specify a group name (ansible group exists automatically)
-        mode: '0775'     # Permissions (optional)
-        recurse: false   # Apply recursively (optional, default: false)
-```
-
-**Options:**
-- `path`: Directory path (required)
-- `owner`: Owner username, or `"USER"` to use the user's name (optional)
-- `group`: Group name, or `"USER"` to use the user's name (optional)
-- `mode`: Permissions in octal format (e.g., `'0755'`, `'0775'`) (optional)
-- `recurse`: Apply ownership/permissions recursively (default: `false`)
-
-**Example:**
-```yaml
-users:
-  - name: aaron
-    directories:
-      - path: /opt/myproject
-        owner: USER
-        group: ansible
-        mode: '0775'
-```
-
-This will set `/opt/myproject` to be owned by user `aaron` with group `ansible` and permissions `775`.
 
 ---
 

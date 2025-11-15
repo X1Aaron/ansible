@@ -83,21 +83,6 @@
         recurse: false
       ignore_errors: yes
 
-- name: Set directory permissions for users
-  block:
-    - name: Set ownership and permissions for user directories
-      file:
-        path: "{{ item.1.path }}"
-        state: directory
-        owner: "{{ (item.1.owner | default(omit) == 'USER') | ternary(item.0.name, item.1.owner | default(omit)) }}"
-        group: "{{ (item.1.group | default(omit) == 'USER') | ternary(item.0.name, item.1.group | default(omit)) }}"
-        mode: "{{ item.1.mode | default(omit) }}"
-        recurse: "{{ item.1.recurse | default(false) }}"
-      loop: "{{ users | default([]) | selectattr('directories', 'defined') | subelements('directories') }}"
-      loop_control:
-        label: "{{ item.0.name }}: {{ item.1.path }}"
-      ignore_errors: yes
-
 - name: Configure sudo access for users
   block:
     - name: Ensure /etc/sudoers.d exists
