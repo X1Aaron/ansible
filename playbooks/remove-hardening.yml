@@ -1,0 +1,103 @@
+---
+- name: Remove Server Hardening
+  hosts: localhost
+  become: yes
+  
+  tasks:
+    - name: Disable and stop UFW firewall
+      ufw:
+        state: disabled
+      ignore_errors: yes
+
+    - name: Restore SSH config from backup
+      copy:
+        src: /etc/ssh/sshd_config.backup
+        dest: /etc/ssh/sshd_config
+        remote_src: yes
+        backup: yes
+      when: ansible_facts.stat is defined and ansible_facts.stat.exists
+      ignore_errors: yes
+
+    - name: Check if SSH backup exists
+      stat:
+        path: /etc/ssh/sshd_config.backup
+      register: ssh_backup
+
+    - name: Restore SSH config
+      copy:
+        src: /etc/ssh/sshd_config.backup
+        dest: /etc/ssh/sshd_config
+        remote_src: yes
+      when: ssh_backup.stat.exists
+      ignore_errors: yes
+
+    - name: Restart SSH service
+      systemd:
+        name: ssh
+        state: restarted
+      ignore_errors: yes
+
+    - name: Stop and disable fail2ban
+      systemd:
+        name: fail2ban
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Remove fail2ban config
+      file:
+        path: /etc/fail2ban/jail.local
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove UFW whitelist update script
+      file:
+        path: /usr/local/bin/ufw-ssh-whitelist-update.sh
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove UFW whitelist sources file
+      file:
+        path: /etc/ufw/ssh-whitelist-sources.conf
+        state: absent
+      ignore_errors: yes
+
+    - name: Stop and disable UFW whitelist update timer
+      systemd:
+        name: ufw-ssh-whitelist-update.timer
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Remove UFW whitelist update systemd files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/ufw-ssh-whitelist-update.timer
+        - /etc/systemd/system/ufw-ssh-whitelist-update.service
+      ignore_errors: yes
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Display rollback summary
+      debug:
+        msg: |
+          ============================================================================
+          Hardening Removal Complete
+          ============================================================================
+          
+          Removed:
+          - UFW firewall (disabled)
+          - SSH hardening (restored from backup)
+          - Fail2ban (stopped and disabled)
+          - UFW whitelist scripts and timers
+          
+          Note: SSH config restored from /etc/ssh/sshd_config.backup
+          If backup doesn't exist, SSH config was not changed.
+          
+          You may need to reboot for all changes to take effect.
+          ============================================================================
+
