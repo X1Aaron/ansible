@@ -2,23 +2,26 @@
 - name: Pre-flight safety checks
   when: hardening_ssh_harden | default(true) and (hardening_ssh_password_auth | default("no")) == "no"
   block:
-    - name: Get current username
-      shell: whoami
-      register: current_user_result
+    - name: Get actual login username (not effective user)
+      shell: |
+        logname 2>/dev/null || echo "$SUDO_USER" || who am i | awk '{print $1}' || id -un
+      register: login_user_result
       changed_when: false
       failed_when: false
 
-    - name: Get current user's home directory
+    - name: Get login user's home directory
       shell: |
-        getent passwd "$(whoami)" | cut -d: -f6
+        LOGIN_USER=$(logname 2>/dev/null || echo "$SUDO_USER" || who am i | awk '{print $1}' || id -un)
+        getent passwd "$LOGIN_USER" | cut -d: -f6
       register: user_home_result
       changed_when: false
       failed_when: false
 
-    - name: Set user home directory fact
+    - name: Set user home directory and login user facts
       set_fact:
-        user_home: "{{ user_home_result.stdout | default('/root') }}"
-        current_user: "{{ current_user_result.stdout | default('root') }}"
+        user_home: "{{ user_home_result.stdout | default('/home/' + login_user) }}"
+        current_user: "{{ login_user_result.stdout | default('root') }}"
+        login_user: "{{ login_user_result.stdout | default('root') }}"
 
     - name: Check if current user has SSH key authentication
       stat:
@@ -55,7 +58,7 @@
           2. Add your SSH key to that user
           3. Then run this hardening playbook
       when: 
-        - current_user == "root"
+        - login_user == "root"
         - (hardening_ssh_permit_root_login | default("no")) == "no"
 
 - name: Update system packages
