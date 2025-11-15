@@ -624,10 +624,10 @@ This repository uses a **git-ignored** file to store sensitive information like 
 
 **Location:** `vars/secrets.local.yml`
 
-This file is:
-- ✅ **NOT tracked in git** (in `.gitignore`)
-- ✅ **Never overwritten** by `git pull`
-- ✅ **Stays on your server only**
+This file:
+- ✅ **Is tracked in git** (with commented examples)
+- ✅ **Contains sensitive information** - be careful when syncing
+- ⚠️ **Restrict permissions:** `chmod 600 vars/secrets.local.yml`
 
 **Setup:**
 ```bash
