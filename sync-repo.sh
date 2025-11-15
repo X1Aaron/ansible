@@ -18,6 +18,7 @@ if [ -d "$REPO_DIR" ]; then
     
     # Make all .sh files in root executable
     echo "Making all .sh files executable..."
+    echo "Current directory: $(pwd)"
     for sh_file in *.sh; do
         if [ -f "$sh_file" ]; then
             chmod +x "$sh_file"
@@ -25,6 +26,12 @@ if [ -d "$REPO_DIR" ]; then
         fi
     done
     
+    # Verify permissions
+    echo ""
+    echo "Verifying .sh file permissions:"
+    ls -l *.sh 2>/dev/null | awk '{print $1, $9}' || echo "No .sh files found in current directory"
+    
+    echo ""
     echo "Repository synced successfully at $(date)"
 else
     echo "Error: Repository directory not found at $REPO_DIR"
