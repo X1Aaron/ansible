@@ -6,7 +6,7 @@
 # This file is NOT tracked in git and will never be overwritten.
 # 
 # To get started, copy this file:
-#   cp examples/hardening.local.yml.example vars/hardening.local.yml
+#   cp examples/vars/hardening.local.yml.example vars/hardening.local.yml
 #   nano vars/hardening.local.yml
 
 # General hardening options
