@@ -17,8 +17,29 @@ This Ansible project provides automation for managing users on a local server. A
 │           └── main.yml    # User management tasks
 ├── vars/
 │   └── users.yml           # User definitions
+├── docs/
+│   └── SERVER_SETUP.md     # Server setup and sync guide
+├── sync-repo.sh            # Script to sync repository on server
 └── README.md
 ```
+
+## Server Setup and Sync
+
+To download and keep this repository in sync on your server:
+
+**Initial Setup:**
+```bash
+git clone https://github.com/X1Aaron/ansible.git
+cd ansible
+```
+
+**Keep in Sync:**
+```bash
+cd ansible
+git pull origin main
+```
+
+For detailed instructions on automated syncing, cron jobs, and best practices, see [docs/SERVER_SETUP.md](docs/SERVER_SETUP.md).
 
 ## Prerequisites
 
