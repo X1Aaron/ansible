@@ -104,7 +104,7 @@
   block:
     - name: Add Proxmox VE repository key
       shell: |
-        wget -qO- "https://enterprise.proxmox.com/debian/proxmox-release-{{ proxmox_release_mapped }}.gpg" | gpg --dearmor -o /etc/apt/trusted.gpg.d/proxmox-release.gpg
+        wget -qO- "https://enterprise.proxmox.com/debian/proxmox-release-{{ proxmox_release_mapped }}.gpg" | gpg --batch --no-tty --dearmor -o /etc/apt/trusted.gpg.d/proxmox-release.gpg
       ignore_errors: yes
 
     - name: Add Proxmox VE community repository (free)
@@ -132,6 +132,34 @@
       debug:
         msg: "Available Proxmox packages: {{ proxmox_package_check.stdout_lines }}"
       when: proxmox_package_check.stdout_lines | length > 0
+
+    - name: Check repository sources
+      command: cat /etc/apt/sources.list.d/proxmox-ve.list
+      register: repo_check
+      changed_when: false
+      failed_when: false
+      ignore_errors: yes
+
+    - name: Display repository configuration
+      debug:
+        msg: "Proxmox repository: {{ repo_check.stdout }}"
+      when: repo_check.rc == 0
+
+    - name: Warn if no Proxmox packages found
+      debug:
+        msg: |
+          ⚠️  WARNING: No Proxmox packages found in repository!
+          
+          This might mean:
+          1. Proxmox doesn't have packages for Debian {{ debian_version }} ({{ proxmox_release_mapped }}) yet
+          2. The repository wasn't added correctly
+          3. The apt cache needs to be updated
+          
+          Detected: Debian {{ debian_version }} -> Proxmox release: {{ proxmox_release_mapped }}
+          
+          Try creating vars/proxmox.local.yml and setting:
+          proxmox_release: bookworm  # or bullseye
+      when: proxmox_package_check.stdout_lines | length == 0
 
     - name: Install Proxmox VE packages
       apt:
@@ -207,7 +235,19 @@
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
-      when: reboot_required.stdout == "yes"
+        connect_timeout: 5
+      when: 
+        - reboot_required.stdout == "yes"
+        - ansible_connection != "local"
+      
+    - name: Warn about manual reboot needed
+      debug:
+        msg: |
+          ⚠️  Reboot is required but cannot be done automatically (localhost connection).
+          Please reboot manually: sudo reboot
+      when:
+        - reboot_required.stdout == "yes"
+        - ansible_connection == "local"
 
 - name: Display installation summary
   debug:
