@@ -104,11 +104,6 @@
         - { question: 'postfix/main_mailer_type', value: 'Local only', vtype: 'select' }
         - { question: 'postfix/mailname', value: 'localhost', vtype: 'string' }
 
-    - name: Set DEBIAN_FRONTEND for all apt operations
-      set_fact:
-        apt_environment:
-          DEBIAN_FRONTEND: noninteractive
-
 - name: Clean up old Proxmox repositories (only if not installed)
   when: proxmox_installed.rc != 0
   block:
@@ -144,7 +139,6 @@
         upgrade: dist
         autoremove: yes
         cache_valid_time: 3600
-        environment: "{{ apt_environment | default({}) }}"
 
 - name: Install prerequisites (only if not installed)
   when: proxmox_installed.rc != 0
@@ -155,7 +149,6 @@
         state: present
         update_cache: yes
         cache_valid_time: 0
-        environment: "{{ apt_environment | default({}) }}"
 
     - name: Install other prerequisites
       apt:
@@ -167,7 +160,6 @@
         state: present
         update_cache: yes
         cache_valid_time: 0
-        environment: "{{ apt_environment | default({}) }}"
 
 - name: Setup Proxmox repository (only if not installed)
   when: proxmox_installed.rc != 0
@@ -230,7 +222,6 @@
         upgrade: dist
         autoremove: yes
         cache_valid_time: 0
-        environment: "{{ apt_environment | default({}) }}"
       when: not repo_file_exists.stat.exists or (existing_repo_config.content | b64decode | default('') | regex_search('Suites:\s*' + proxmox_release_mapped) is not defined)
 
     - name: Verify Proxmox packages are available
@@ -256,7 +247,6 @@
       apt:
         name: proxmox-default-kernel
         state: present
-        environment: "{{ apt_environment | default({}) }}"
 
     - name: Install Proxmox VE packages
       apt:
@@ -266,7 +256,6 @@
           - open-iscsi
           - chrony
         state: present
-        environment: "{{ apt_environment | default({}) }}"
 
     - name: Ensure SSH service is enabled and started
       systemd:
@@ -279,7 +268,6 @@
       apt:
         name: os-prober
         state: absent
-      environment: "{{ apt_environment | default({}) }}"
       failed_when: false
 
     - name: Get installed Debian kernels
@@ -293,7 +281,6 @@
         name: "{{ debian_kernels.stdout_lines + ['linux-image-amd64'] }}"
         state: absent
       when: debian_kernels.stdout_lines | length > 0
-      environment: "{{ apt_environment | default({}) }}"
       failed_when: false
 
     - name: Update GRUB after kernel removal
