@@ -142,6 +142,25 @@
         mode: '0644'
       when: gpg_key_check.stat.exists
 
+    - name: Remove any incorrectly configured enterprise repository
+      file:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove any old repository files with wrong component
+      shell: |
+        if [ -f /etc/apt/sources.list.d/pve-install-repo.sources ]; then
+          # Check if it has wrong component 'pve' instead of 'pve-no-subscription'
+          if grep -q "Components: pve$" /etc/apt/sources.list.d/pve-install-repo.sources; then
+            rm -f /etc/apt/sources.list.d/pve-install-repo.sources
+            echo "removed"
+          fi
+        fi
+      register: removed_old_repo
+      changed_when: removed_old_repo.stdout == "removed"
+      failed_when: false
+
     - name: Add Proxmox VE repository (fallback to old format)
       apt_repository:
         repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pve {{ proxmox_release_mapped }} pve-no-subscription"
