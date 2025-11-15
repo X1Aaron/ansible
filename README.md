@@ -103,6 +103,72 @@ Your `*.local.yml` files will never be overwritten (they're in `.gitignore`).
 
 ## Projects
 
+### Quick Reference: All Playbooks
+
+**User Management:**
+```bash
+ansible-playbook playbooks/user-management.yml
+```
+
+**Server Hardening (Complete):**
+```bash
+ansible-playbook playbooks/server-hardening.yml
+```
+
+**Modular Hardening Playbooks:**
+```bash
+# System updates (safest)
+ansible-playbook playbooks/hardening-updates.yml
+
+# SSH hardening (⚠️ can lock you out)
+ansible-playbook playbooks/hardening-ssh.yml
+
+# Firewall configuration (⚠️ can block access)
+ansible-playbook playbooks/hardening-firewall.yml
+
+# Fail2ban protection
+ansible-playbook playbooks/hardening-fail2ban.yml
+
+# Kernel hardening
+ansible-playbook playbooks/hardening-kernel.yml
+
+# Disable unnecessary services
+ansible-playbook playbooks/hardening-services.yml
+
+# Time synchronization
+ansible-playbook playbooks/hardening-ntp.yml
+
+# File permissions
+ansible-playbook playbooks/hardening-permissions.yml
+
+# Audit logging
+ansible-playbook playbooks/hardening-audit.yml
+
+# Disable IPv6 (if configured)
+ansible-playbook playbooks/hardening-ipv6.yml
+```
+
+**Remove Hardening:**
+```bash
+ansible-playbook playbooks/remove-hardening.yml
+```
+
+**Proxmox Installation:**
+```bash
+ansible-playbook playbooks/proxmox-install.yml
+```
+
+**Diagnostics & Troubleshooting:**
+```bash
+# System diagnostics
+ansible-playbook playbooks/diagnose-system.yml
+
+# Fix console login issues
+ansible-playbook playbooks/fix-console-login.yml
+```
+
+---
+
 ### User Management
 
 Automate user account creation, modification, and deletion on local servers.
