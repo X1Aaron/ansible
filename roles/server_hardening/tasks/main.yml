@@ -239,9 +239,20 @@
         - hardening_ssh_allowed_sources is not defined or hardening_ssh_allowed_sources | length == 0
       failed_when: false
 
+    - name: Set source for hostname resolution
+      set_fact:
+        current_source: "{{ item }}"
+      loop: "{{ hardening_ssh_allowed_sources }}"
+      loop_control:
+        label: "{{ item }}"
+      when: 
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+
     - name: Resolve hostnames to IP addresses for SSH whitelist (supports multiple IPs per hostname)
       shell: |
-        SOURCE="{{ item | quote }}"
+        SOURCE="{{ current_source }}"
         # Check if it's already an IP or CIDR (contains numbers and dots/slashes, no letters except in IPv6)
         if echo "$SOURCE" | grep -qE '^[0-9]|^[0-9a-fA-F:]*::|/[0-9]+$'; then
           # It's already an IP/CIDR, return as-is
@@ -252,6 +263,8 @@
         fi
       register: resolved_sources
       loop: "{{ hardening_ssh_allowed_sources }}"
+      loop_control:
+        label: "{{ item }}"
       changed_when: false
       failed_when: false
       when: 
