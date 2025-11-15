@@ -76,6 +76,54 @@
       Proceeding anyway, but installation may fail.
   when: debian_version not in ["11", "12", "13", "bullseye", "bookworm", "trixie", "11.0", "12.0", "13.0"]
 
+- name: Clean up ALL existing Proxmox repositories FIRST (before any apt operations)
+  # This must run BEFORE any apt update/install operations to prevent errors
+  block:
+    - name: Remove ALL existing Proxmox repository files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/pve-enterprise.list
+        - /etc/apt/sources.list.d/pve.list
+        - /etc/apt/sources.list.d/pve-install-repo.sources
+        - /etc/apt/sources.list.d/proxmox-ve.list
+        - /etc/apt/sources.list.d/pve-no-subscription.list
+      ignore_errors: yes
+
+    - name: Remove any remaining Proxmox repository files with wrong configuration
+      shell: |
+        REMOVED=""
+        # Check all possible repository file locations
+        for file in /etc/apt/sources.list.d/pve*.sources /etc/apt/sources.list.d/pve*.list /etc/apt/sources.list.d/proxmox*.list /etc/apt/sources.list.d/proxmox*.sources; do
+          if [ -f "$file" ]; then
+            # Remove if it has wrong component 'pve' (enterprise) instead of 'pve-no-subscription'
+            if grep -qE "Components:\s*pve[^-]" "$file" 2>/dev/null || grep -qE "pve\s+pve[^-]" "$file" 2>/dev/null; then
+              rm -f "$file"
+              REMOVED="$REMOVED $file"
+            # Remove if it uses enterprise URL for packages (not just GPG key)
+            elif grep -qE "https?://enterprise\.proxmox\.com/debian/pve" "$file" 2>/dev/null; then
+              rm -f "$file"
+              REMOVED="$REMOVED $file"
+            fi
+          fi
+        done
+        # Also check main sources.list file
+        if [ -f /etc/apt/sources.list ]; then
+          if grep -qE "enterprise\.proxmox\.com/debian/pve" /etc/apt/sources.list 2>/dev/null || grep -qE "pve\s+pve[^-]" /etc/apt/sources.list 2>/dev/null; then
+            # Comment out problematic lines instead of removing (safer)
+            sed -i 's|.*enterprise\.proxmox\.com/debian/pve.*|# &|' /etc/apt/sources.list
+            sed -i 's|.*pve\s\+pve[^-].*|# &|' /etc/apt/sources.list
+            REMOVED="$REMOVED /etc/apt/sources.list (commented)"
+          fi
+        fi
+        if [ -n "$REMOVED" ]; then
+          echo "removed:$REMOVED"
+        fi
+      register: removed_old_repo
+      changed_when: "'removed:' in removed_old_repo.stdout"
+      failed_when: false
+
 - name: Update system packages
   when: proxmox_update_system | default(true)
   block:
@@ -138,42 +186,8 @@
       register: gpg_key_check
       ignore_errors: yes
 
-    - name: Remove ALL existing Proxmox repository files (clean slate)
-      # Remove all Proxmox repository files to ensure clean configuration
-      # We'll add the correct one right after this
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/apt/sources.list.d/pve-enterprise.list
-        - /etc/apt/sources.list.d/pve.list
-        - /etc/apt/sources.list.d/pve-install-repo.sources
-        - /etc/apt/sources.list.d/proxmox-ve.list
-      ignore_errors: yes
-
-    - name: Remove any remaining Proxmox repository files with wrong configuration
-      shell: |
-        REMOVED=""
-        # Find all Proxmox-related repository files
-        for file in /etc/apt/sources.list.d/pve*.sources /etc/apt/sources.list.d/pve*.list /etc/apt/sources.list.d/proxmox*.list /etc/apt/sources.list.d/proxmox*.sources; do
-          if [ -f "$file" ]; then
-            # Remove if it has wrong component 'pve' (enterprise) instead of 'pve-no-subscription'
-            if grep -qE "Components:\s*pve[^-]" "$file" 2>/dev/null || grep -qE "pve\s+pve[^-]" "$file" 2>/dev/null; then
-              rm -f "$file"
-              REMOVED="$REMOVED $file"
-            # Remove if it uses enterprise URL for packages (not just GPG key)
-            elif grep -qE "https?://enterprise\.proxmox\.com/debian/pve" "$file" 2>/dev/null; then
-              rm -f "$file"
-              REMOVED="$REMOVED $file"
-            fi
-          fi
-        done
-        if [ -n "$REMOVED" ]; then
-          echo "removed:$REMOVED"
-        fi
-      register: removed_old_repo
-      changed_when: "'removed:' in removed_old_repo.stdout"
-      failed_when: false
+    # Note: Repository cleanup already happened earlier in the playbook
+    # This block just adds the correct repository
 
     - name: Add Proxmox VE repository using deb822 format (official method)
       # Using community (no-subscription) repository - NOT enterprise
