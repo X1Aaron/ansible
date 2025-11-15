@@ -108,7 +108,7 @@
       - ca-certificates
     state: present
     update_cache: yes
-    cache_valid_time: 3600
+    cache_valid_time: 0
     environment: "{{ apt_environment | default({}) }}"
 
 - name: Setup Proxmox repository (only if not installed)
@@ -247,10 +247,17 @@
         msg: "Proxmox VE {{ proxmox_version.stdout }} installed successfully"
       when: proxmox_version.rc == 0
 
-- name: Configure Proxmox (only if enabled and not already configured)
+    - name: Re-check if Proxmox is now installed (after installation)
+      command: pveversion
+      register: proxmox_installed_after
+      changed_when: false
+      failed_when: false
+      ignore_errors: yes
+
+- name: Configure Proxmox (only if enabled and Proxmox is installed)
   when: 
     - proxmox_configure | default(true)
-    - proxmox_installed.rc == 0
+    - (proxmox_installed.rc == 0) or (proxmox_installed_after.rc | default(1) == 0)
   block:
     - name: Set hostname
       hostname:
@@ -318,12 +325,15 @@
   debug:
     msg: |
       ============================================================================
-      Proxmox VE Installation {{ 'Complete' if (proxmox_installed.rc == 0) else 'Ready' }}!
+      Proxmox VE Installation {{ 'Complete' if ((proxmox_installed.rc == 0) or (proxmox_installed_after.rc | default(1) == 0)) else 'Ready' }}!
       ============================================================================
       {% if proxmox_installed.rc == 0 %}
       Status: Already installed ({{ proxmox_version.stdout | default('version unknown') }})
+      {% elif proxmox_installed_after.rc | default(1) == 0 %}
+      Status: Installation completed successfully
+      Version: {{ proxmox_version.stdout | default('version unknown') }}
       {% else %}
-      Status: Installation completed
+      Status: Installation in progress or failed
       {% endif %}
       
       Next Steps:
