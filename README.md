@@ -101,6 +101,166 @@ Your `*.local.yml` files will never be overwritten (they're in `.gitignore`).
 
 ---
 
+## 🚀 Ansible Cheat Sheet - For Beginners
+
+**Never used Ansible before? Start here!** This section explains everything you need to know to run playbooks.
+
+### What is Ansible?
+
+Ansible is a tool that automates server management. Instead of manually running commands on your server, you write "playbooks" (recipes) that Ansible follows to configure your system automatically.
+
+### Basic Concepts
+
+**Playbook** = A file with instructions (like a recipe)  
+**Run a playbook** = Tell Ansible to follow those instructions  
+**Task** = One step in the playbook (like "install a package" or "create a user")
+
+### How to Run a Playbook (Step by Step)
+
+#### Step 1: Navigate to the Repository
+
+```bash
+cd /opt/ansible
+# or wherever you cloned the repository
+```
+
+#### Step 2: Run the Playbook
+
+The basic command is always the same:
+
+```bash
+ansible-playbook playbooks/NAME-OF-PLAYBOOK.yml
+```
+
+**Example:** To run the user management playbook:
+```bash
+ansible-playbook playbooks/user-management.yml
+```
+
+#### Step 3: What Happens?
+
+1. Ansible reads the playbook file
+2. It checks what needs to be done
+3. It makes the changes (creates users, installs packages, etc.)
+4. It shows you what it did
+
+### Understanding the Output
+
+When you run a playbook, you'll see output like this:
+
+```
+TASK [Create user] ********************
+changed: [localhost] => (item=aaron)
+```
+
+**What this means:**
+- `TASK` = What Ansible is doing right now
+- `changed` = Ansible made a change (created/updated something)
+- `ok` = Everything is already correct, no change needed
+- `skipping` = This step was skipped (usually because a condition wasn't met)
+
+### Common Commands
+
+**Run a playbook:**
+```bash
+ansible-playbook playbooks/user-management.yml
+```
+
+**Run a playbook and see what would change (dry run):**
+```bash
+ansible-playbook playbooks/user-management.yml --check
+```
+*Note: Not all playbooks support --check mode*
+
+**Run a playbook with more details:**
+```bash
+ansible-playbook playbooks/user-management.yml -v
+# -v = verbose (more details)
+# -vv = very verbose (even more details)
+# -vvv = maximum verbosity (all details)
+```
+
+**Run a playbook and ask for password:**
+```bash
+ansible-playbook playbooks/user-management.yml --ask-become-pass
+```
+*This will prompt you for your sudo password*
+
+### Troubleshooting
+
+**"Permission denied" error:**
+- The playbook needs sudo/root access
+- Make sure you're running with `sudo` or as root
+- Or use `--ask-become-pass` to enter your password
+
+**"File not found" error:**
+- Make sure you're in the correct directory (`/opt/ansible` or wherever the repo is)
+- Check that the playbook file exists: `ls playbooks/`
+
+**"YAML parsing error":**
+- There's a syntax error in your configuration file
+- Run the validation playbook: `ansible-playbook playbooks/validate-yaml.yml`
+- Fix the errors it reports
+
+**"No such file or directory" for config file:**
+- You need to create your `.local.yml` file first
+- Copy from the example: `cp vars/users.local.yml.example vars/users.local.yml`
+- Then edit it: `nano vars/users.local.yml`
+
+### Quick Reference
+
+| What you want to do | Command |
+|---------------------|---------|
+| Create/manage users | `ansible-playbook playbooks/user-management.yml` |
+| Harden server security | `ansible-playbook playbooks/server-hardening.yml` |
+| Install Proxmox | `ansible-playbook playbooks/proxmox-install.yml` |
+| Check system status | `ansible-playbook playbooks/diagnose-system.yml` |
+| Validate YAML files | `ansible-playbook playbooks/validate-yaml.yml` |
+| Fix console login | `ansible-playbook playbooks/fix-console-login.yml` |
+
+### Before Running a Playbook
+
+1. ✅ **Read the playbook's documentation** (in this README)
+2. ✅ **Create your config file** (copy from `.example` file)
+3. ✅ **Edit your config file** (uncomment and modify settings)
+4. ✅ **Validate YAML** (run `validate-yaml.yml` to check for errors)
+5. ✅ **Run the playbook**
+
+### Important Notes
+
+- **Playbooks are safe to run multiple times** - Ansible only makes changes if needed (idempotent)
+- **Always read warnings** - Some playbooks can lock you out if not configured correctly
+- **Keep your SSH session open** - When hardening servers, keep your current session open until you verify you can reconnect
+- **Backup first** - For major changes, consider backing up important data
+
+### Example: Your First Playbook Run
+
+Let's say you want to create a user. Here's the complete process:
+
+```bash
+# 1. Go to the repository
+cd /opt/ansible
+
+# 2. Create your config file (first time only)
+cp vars/users.local.yml.example vars/users.local.yml
+
+# 3. Edit the config file
+nano vars/users.local.yml
+# (Add your user details, save and exit)
+
+# 4. Validate the YAML (optional but recommended)
+ansible-playbook playbooks/validate-yaml.yml
+
+# 5. Run the playbook
+ansible-playbook playbooks/user-management.yml
+
+# 6. Done! Your user is created.
+```
+
+That's it! You've just automated user creation with Ansible.
+
+---
+
 ## Projects
 
 ### Quick Reference: All Playbooks
