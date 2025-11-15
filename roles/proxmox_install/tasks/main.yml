@@ -417,7 +417,27 @@
       changed_when: false
       failed_when: false
 
-    - name: Reboot system
+    - name: Ask user if they want to reboot
+      pause:
+        prompt: |
+          ============================================================================
+          Reboot Required
+          ============================================================================
+          
+          A reboot is required to complete the Proxmox VE installation.
+          
+          Do you want to reboot now? (yes/no)
+          
+          Note: If running on localhost, you'll need to reboot manually.
+          ============================================================================
+        echo: yes
+      register: reboot_prompt
+      when: 
+        - reboot_required.stdout == "yes"
+        - ansible_connection != "local"
+      failed_when: false
+
+    - name: Reboot system (if user confirmed)
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
@@ -425,12 +445,30 @@
       when: 
         - reboot_required.stdout == "yes"
         - ansible_connection != "local"
+        - reboot_prompt.user_input | default('no') | lower == 'yes'
       
-    - name: Warn about manual reboot needed
+    - name: Skip reboot (user declined)
       debug:
         msg: |
-          ⚠️  Reboot is required but cannot be done automatically (localhost connection).
-          Please reboot manually: sudo reboot
+          Reboot skipped. Please reboot manually when ready:
+          $ sudo reboot
+      when: 
+        - reboot_required.stdout == "yes"
+        - ansible_connection != "local"
+        - reboot_prompt.user_input | default('no') | lower != 'yes'
+      
+    - name: Warn about manual reboot needed (localhost)
+      debug:
+        msg: |
+          ============================================================================
+          Reboot Required
+          ============================================================================
+          
+          A reboot is required but cannot be done automatically (localhost connection).
+          
+          Please reboot manually when ready:
+          $ sudo reboot
+          ============================================================================
       when:
         - reboot_required.stdout == "yes"
         - ansible_connection == "local"
