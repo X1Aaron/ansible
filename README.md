@@ -206,12 +206,12 @@ ansible-playbook playbooks/user-management.yml -e "user_action=list"
      john_doe: "$6$rounds=656000$..."
    ```
 
-4. **Reference in users.yml:**
+4. **Define users in `vars/users.local.yml` (username must match vault key):**
    ```yaml
    users_to_create:
-     - name: john_doe
+     - name: john_doe  # Must match key in vault: user_passwords['john_doe']
        groups: ['sudo']
-       # Password automatically looked up from vault
+       # Password automatically looked up from vault!
    ```
 
 5. **Run playbooks (password file is auto-detected):**
