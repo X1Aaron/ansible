@@ -262,7 +262,8 @@
           Please manually allow SSH: sudo ufw allow {{ current_ssh_port }}/tcp
       when:
         - ansible_os_family == "Debian"
-        - "SSH_NOT_ALLOWED" in ufw_ssh_check.stdout
+        - ufw_ssh_check.stdout is defined
+        - "'SSH_NOT_ALLOWED' in ufw_ssh_check.stdout"
 
     - name: Configure UFW default policies (only after SSH is confirmed allowed)
       ufw:
