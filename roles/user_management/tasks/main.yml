@@ -73,14 +73,27 @@
         - "'sudo' in item.groups"
       ignore_errors: false
 
+    - name: Get list of existing sudoers files
+      find:
+        paths: /etc/sudoers.d
+        patterns: "*"
+        file_type: file
+      register: existing_sudoers_files
+      ignore_errors: yes
+
+    - name: Get list of users that should have sudo access
+      set_fact:
+        users_with_sudo: "{{ users | default([]) | selectattr('groups', 'defined') | selectattr('groups', 'contains', 'sudo') | map(attribute='name') | list }}"
+
     - name: Remove sudoers files for users no longer in sudo group
       file:
-        path: "/etc/sudoers.d/{{ item }}"
+        path: "{{ item.path }}"
         state: absent
-      loop: "{{ existing_user_names }}"
+      loop: "{{ existing_sudoers_files.files | default([]) }}"
       when:
-        - item not in (users | default([]) | map(attribute='name') | list)
-        - item != 'root'
+        - item.path | basename not in users_with_sudo
+        - item.path | basename != 'root'
+        - (existing_users.ansible_facts.getent_passwd[item.path | basename][1] | int) >= 1000
       ignore_errors: yes
 
 - name: Remove users not in variables file
