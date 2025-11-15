@@ -206,7 +206,14 @@ The key is automatically added to `~/.ssh/authorized_keys`.
 
 #### Directory Permissions
 
-Grant users access to specific directories by setting ownership and permissions:
+**Automatic `/opt/ansible` Access:**
+All users are automatically granted access to `/opt/ansible`:
+- Users are automatically added to the `ansible` group
+- `/opt/ansible` is owned by `root:ansible` with `775` permissions (group writable)
+- No configuration needed - it's automatic for all users!
+
+**Additional Directory Permissions:**
+You can grant users access to other specific directories:
 
 ```yaml
 users:
@@ -214,10 +221,10 @@ users:
     groups: ['sudo']
     ssh_public_key: "ssh-rsa AAAAB3..."
     directories:
-      - path: /opt/ansible
+      - path: /opt/myproject
         owner: USER      # Use "USER" to automatically use the username
-        group: USER      # Or specify a group name like "ansible"
-        mode: '0755'     # Permissions (optional)
+        group: ansible   # Or specify a group name (ansible group exists automatically)
+        mode: '0775'     # Permissions (optional)
         recurse: false   # Apply recursively (optional, default: false)
 ```
 
@@ -228,18 +235,18 @@ users:
 - `mode`: Permissions in octal format (e.g., `'0755'`, `'0775'`) (optional)
 - `recurse`: Apply ownership/permissions recursively (default: `false`)
 
-**Example for /opt/ansible:**
+**Example:**
 ```yaml
 users:
   - name: aaron
     directories:
-      - path: /opt/ansible
+      - path: /opt/myproject
         owner: USER
-        group: USER
-        mode: '0755'
+        group: ansible
+        mode: '0775'
 ```
 
-This will set `/opt/ansible` to be owned by user `aaron` with group `aaron` and permissions `755`.
+This will set `/opt/myproject` to be owned by user `aaron` with group `ansible` and permissions `775`.
 
 ---
 
