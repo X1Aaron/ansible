@@ -138,7 +138,7 @@
     - name: Remove old loopback hostname entries from /etc/hosts
       lineinfile:
         path: /etc/hosts
-        regexp: "^\s*127\.0\.1\.1\s+{{ system_hostname.stdout }}(\s|$)"
+        regexp: '^\s*127\.0\.1\.1\s+{{ system_hostname.stdout }}(\s|$)'
         state: absent
         backup: yes
       when:
