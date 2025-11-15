@@ -1,6 +1,6 @@
 #!/bin/bash
 # UFW SSH Whitelist Update Script
-# This script re-resolves hostnames and updates UFW rules every 5 minutes
+# This script re-resolves hostnames and updates UFW rules periodically
 # Created by Ansible server_hardening role
 
 SSH_PORT="{{ hardening_ssh_port | default(22) }}"

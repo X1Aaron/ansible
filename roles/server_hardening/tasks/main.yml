@@ -386,6 +386,15 @@
         - hardening_ssh_allowed_sources | length > 0
         - hardening_ssh_whitelist_auto_update | default(true)
 
+    - name: Set whitelist update interval
+      set_fact:
+        whitelist_update_interval: "{{ hardening_ssh_whitelist_update_interval | default('1min') }}"
+      when:
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
+        - hardening_ssh_whitelist_auto_update | default(true)
+
     - name: Create systemd timer for UFW SSH whitelist updates
       copy:
         content: |
@@ -394,9 +403,9 @@
           Requires=ufw.service
 
           [Timer]
-          OnBootSec=5min
-          OnUnitActiveSec=5min
-          AccuracySec=1min
+          OnBootSec={{ whitelist_update_interval }}
+          OnUnitActiveSec={{ whitelist_update_interval }}
+          AccuracySec=10s
 
           [Install]
           WantedBy=timers.target
