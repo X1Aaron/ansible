@@ -9,8 +9,6 @@
     # Then edit it with all your users, passwords, SSH keys, etc.
     - ../vars/users.local.yml
   
-  tasks:
-    - name: Include user management role
-      include_role:
-        name: user_management
+  roles:
+    - role: user_management
 
