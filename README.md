@@ -170,6 +170,17 @@ users_to_create:
 
 ## SSH Keys
 
+### Do I Need a Password with SSH Keys?
+
+**No!** If you add an SSH public key to a user, they can authenticate using the key without a password. However, you might want a password for:
+
+- Console/login access (if they need physical access to the server)
+- Sudo operations (if sudo is configured to require passwords)
+- Fallback authentication if the SSH key is lost
+- Some applications that require password authentication
+
+**For SSH-only access:** Just use `ssh_public_key` and omit the `password` field.
+
 ### Get Your Public Key
 
 On your local machine:
@@ -187,6 +198,7 @@ In `vars/users.local.yml`:
 users_to_create:
   - name: my_user
     ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-full-key"
+    # No password needed - SSH key authentication only
 ```
 
 The playbook will automatically add it to the user's `~/.ssh/authorized_keys`.
@@ -241,7 +253,7 @@ users_to_create:
     comment: "Bob - Web Developer"
     create_home: true
     ssh_public_key: "ssh-ed25519 AAAAC3... bob@workstation"
-    # No password - SSH key only
+    # No password needed - SSH key authentication only
 
 users_to_modify:
   - name: existing_user
