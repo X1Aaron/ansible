@@ -8,15 +8,14 @@
       include_vars:
         file: ../vars/proxmox.local.yml
       ignore_errors: yes
-  
-  vars:
-    # Defaults - Debian 13 (Trixie) by default
-    # These will be overridden by vars/proxmox.local.yml if it exists
-    proxmox_release: "{{ proxmox_release | default('trixie') }}"
-    proxmox_update_system: "{{ proxmox_update_system | default(true) }}"
-    proxmox_install_packages: "{{ proxmox_install_packages | default(true) }}"
-    proxmox_configure: "{{ proxmox_configure | default(true) }}"
-    proxmox_reboot_after_install: "{{ proxmox_reboot_after_install | default(true) }}"
+    
+    - name: Set defaults if not already set
+      set_fact:
+        proxmox_release: "{{ proxmox_release | default('trixie') }}"
+        proxmox_update_system: "{{ proxmox_update_system | default(true) }}"
+        proxmox_install_packages: "{{ proxmox_install_packages | default(true) }}"
+        proxmox_configure: "{{ proxmox_configure | default(true) }}"
+        proxmox_reboot_after_install: "{{ proxmox_reboot_after_install | default(true) }}"
   
   roles:
     - role: proxmox_install
