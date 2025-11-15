@@ -54,29 +54,107 @@ echo "Setting up local configuration files..."
 
 # Create users.local.yml if it doesn't exist
 if [ ! -f vars/users.local.yml ]; then
-    echo "Creating vars/users.local.yml from example..."
-    cp vars/users.local.yml.example vars/users.local.yml
+    echo "Creating vars/users.local.yml..."
+    cat > vars/users.local.yml << 'EOF'
+---
+# ============================================================================
+# ✅ YOUR ACTUAL CONFIG FILE - EDIT THIS FILE! ✅
+# ============================================================================
+# 
+# This is YOUR configuration file (not a template).
+# This file is git-ignored and will NOT be overwritten when you sync from GitHub.
+# 
+# Add your user configuration below.
+# See vars/users.local.yml.example for examples and documentation.
+# 
+# ============================================================================
+
+# Users - The variables file is the source of truth
+users: []
+  # - name: my_user
+  #   groups: ['sudo']
+  #   ssh_public_key: "ssh-rsa AAAAB3..."
+  #   sudo_passwordless: true
+
+# Options
+remove_orphaned_users: false
+EOF
     echo "⚠️  IMPORTANT: Edit vars/users.local.yml with your user configuration!"
 fi
 
 # Create hardening.local.yml if it doesn't exist
 if [ ! -f vars/hardening.local.yml ]; then
-    echo "Creating vars/hardening.local.yml from example..."
-    cp vars/hardening.local.yml.example vars/hardening.local.yml
+    echo "Creating vars/hardening.local.yml..."
+    cat > vars/hardening.local.yml << 'EOF'
+---
+# ============================================================================
+# ✅ YOUR ACTUAL CONFIG FILE - EDIT THIS FILE! ✅
+# ============================================================================
+# 
+# This is YOUR configuration file (not a template).
+# This file is git-ignored and will NOT be overwritten when you sync from GitHub.
+# 
+# Add your hardening configuration below.
+# See vars/hardening.local.yml.example for examples and documentation.
+# 
+# ⚠️  IMPORTANT: Add your IP to hardening_ssh_allowed_sources before running firewall hardening!
+# 
+# ============================================================================
+
+# Add your configuration here
+# See vars/hardening.local.yml.example for all available options
+EOF
     echo "⚠️  IMPORTANT: Edit vars/hardening.local.yml with your hardening settings!"
     echo "⚠️  Make sure to add your IP to hardening_ssh_allowed_sources before running firewall hardening!"
 fi
 
 # Create proxmox.local.yml if it doesn't exist (optional)
 if [ ! -f vars/proxmox.local.yml ]; then
-    echo "Creating vars/proxmox.local.yml from example (optional)..."
-    cp vars/proxmox.local.yml.example vars/proxmox.local.yml 2>/dev/null || echo "Proxmox config not needed, skipping..."
+    echo "Creating vars/proxmox.local.yml (optional)..."
+    cat > vars/proxmox.local.yml << 'EOF'
+---
+# ============================================================================
+# ✅ YOUR ACTUAL CONFIG FILE - EDIT THIS FILE! ✅
+# ============================================================================
+# 
+# This is YOUR configuration file (not a template).
+# This file is git-ignored and will NOT be overwritten when you sync from GitHub.
+# 
+# This file is OPTIONAL - Proxmox installation will use defaults if not present.
+# Add your Proxmox configuration below.
+# See vars/proxmox.local.yml.example for examples and documentation.
+# 
+# ============================================================================
+
+# Add your configuration here (optional)
+# See vars/proxmox.local.yml.example for all available options
+EOF
+    echo "⚠️  Proxmox config is optional - defaults will be used if not configured"
 fi
 
 # Create secrets.local.yml if it doesn't exist
 if [ ! -f vars/secrets.local.yml ]; then
-    echo "Creating vars/secrets.local.yml from example..."
-    cp vars/secrets.local.yml.example vars/secrets.local.yml
+    echo "Creating vars/secrets.local.yml..."
+    cat > vars/secrets.local.yml << 'EOF'
+---
+# ============================================================================
+# ✅ YOUR ACTUAL CONFIG FILE - EDIT THIS FILE! ✅
+# ============================================================================
+# 
+# This is YOUR configuration file (not a template).
+# This file is git-ignored and will NOT be overwritten when you sync from GitHub.
+# 
+# ⚠️  SECURITY: This file contains sensitive information!
+# ⚠️  Keep this file secure and never commit it to git.
+# 
+# Add your secrets below.
+# See vars/secrets.local.yml.example for examples.
+# 
+# ============================================================================
+
+# Add your secrets here
+# See vars/secrets.local.yml.example for examples
+EOF
     chmod 600 vars/secrets.local.yml
     echo "⚠️  IMPORTANT: Edit vars/secrets.local.yml with your root password and other secrets!"
 fi
