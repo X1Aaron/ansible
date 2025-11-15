@@ -23,8 +23,9 @@ sudo rm -rf /opt/ansible
 sudo git clone https://github.com/X1Aaron/ansible.git /opt/ansible
 sudo chown -R $USER:$USER /opt/ansible
 
-# Make sync-repo.sh executable
-chmod +x /opt/ansible/sync-repo.sh
+# Make all .sh files in root executable
+echo "Making all .sh files executable..."
+chmod +x /opt/ansible/*.sh
 
 # Create local config files from examples
 cd /opt/ansible
