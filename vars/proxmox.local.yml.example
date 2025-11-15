@@ -1,0 +1,42 @@
+---
+# Proxmox VE Installation Configuration
+# 
+# This is YOUR file - edit this with your server-specific Proxmox settings!
+# 
+# This file is NOT tracked in git and will never be overwritten.
+# 
+# To get started, copy this file:
+#   cp vars/proxmox.local.yml.example vars/proxmox.local.yml
+#   nano vars/proxmox.local.yml
+
+# Proxmox release version
+# Options: 'bookworm' (Debian 12), 'bullseye' (Debian 11)
+proxmox_release: bookworm
+
+# System update before installation
+proxmox_update_system: true
+
+# Install Proxmox VE packages
+proxmox_install_packages: true
+
+# Configure Proxmox after installation
+proxmox_configure: true
+
+# Hostname for the Proxmox server
+# proxmox_hostname: pve1.example.com
+
+# Reboot after installation (if required)
+proxmox_reboot_after_install: true
+
+# Network configuration (optional)
+# Uncomment and configure if you need to set up network interfaces
+# proxmox_network_config:
+#   - interface: enp0s3
+#     method: static
+#     address: 192.168.1.100
+#     netmask: 255.255.255.0
+#     gateway: 192.168.1.1
+#     dns_nameservers:
+#       - 8.8.8.8
+#       - 8.8.4.4
+

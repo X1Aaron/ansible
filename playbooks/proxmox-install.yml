@@ -1,0 +1,14 @@
+---
+- name: Proxmox VE Installation Playbook
+  hosts: localhost
+  become: yes
+  vars_files:
+    # Load your Proxmox configuration from this file
+    # This file is NOT in git - it stays on your server only
+    # Create it: cp vars/proxmox.local.yml.example vars/proxmox.local.yml
+    # Then edit it with your server-specific Proxmox settings
+    - ../vars/proxmox.local.yml
+  
+  roles:
+    - role: proxmox_install
+

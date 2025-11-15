@@ -331,6 +331,105 @@ All options are enabled by default with secure settings. Disable any section by 
 #### Security Features
 
 - **SSH:** Root login disabled, password auth disabled, key-only access
+
+---
+
+### Proxmox VE Installation
+
+Automate Proxmox VE installation on Debian-based systems.
+
+#### ⚠️ IMPORTANT: Prerequisites
+
+**Before running the Proxmox installation playbook:**
+
+1. ✅ **Fresh Debian 11 or 12 system:**
+   - Proxmox VE requires a clean Debian installation
+   - Debian 11 (Bullseye) or Debian 12 (Bookworm) recommended
+   - Do NOT run on a system with existing virtualization software
+
+2. ✅ **Adequate hardware:**
+   - Minimum 2GB RAM (4GB+ recommended)
+   - 64-bit processor with virtualization support
+   - Sufficient disk space
+
+3. ✅ **Network access:**
+   - Internet connection required for package downloads
+   - Static IP recommended (can be configured during installation)
+
+4. ✅ **Backup important data:**
+   - Proxmox installation will modify system configuration
+   - Backup any important data before proceeding
+
+**This installation will modify your system significantly. Use on a fresh Debian installation or a system you're prepared to reconfigure.**
+
+#### Quick Start
+
+1. **Create your Proxmox configuration:**
+   ```bash
+   cp vars/proxmox.local.yml.example vars/proxmox.local.yml
+   nano vars/proxmox.local.yml
+   ```
+
+2. **Review settings** - especially hostname and network configuration
+
+3. **Run the playbook:**
+   ```bash
+   ansible-playbook playbooks/proxmox-install.yml
+   ```
+
+4. **Reboot if required** and access the web interface at `https://your-hostname:8006`
+
+#### What It Does
+
+The Proxmox installation playbook:
+- Updates system packages
+- Adds Proxmox VE repository
+- Installs Proxmox VE packages
+- Configures hostname (optional)
+- Configures network (optional)
+- Reboots if required
+
+#### Configuration
+
+Edit `vars/proxmox.local.yml` to customize:
+
+```yaml
+# Proxmox release version
+proxmox_release: bookworm  # or 'bullseye' for Debian 11
+
+# Hostname
+proxmox_hostname: pve1.example.com
+
+# Network configuration (optional)
+proxmox_network_config:
+  - interface: enp0s3
+    method: static
+    address: 192.168.1.100
+    netmask: 255.255.255.0
+    gateway: 192.168.1.1
+    dns_nameservers:
+      - 8.8.8.8
+      - 8.8.4.4
+```
+
+#### After Installation
+
+1. **Access web interface:**
+   - URL: `https://your-hostname:8006`
+   - Login: `root` / your root password
+
+2. **Configure storage:**
+   - Add local storage or network storage (NFS, CIFS, etc.)
+
+3. **Create VMs/containers:**
+   - Upload ISO images
+   - Create virtual machines or LXC containers
+
+#### Security Features
+
+- **Web Interface:** HTTPS on port 8006
+- **SSH Access:** Standard SSH (consider running server-hardening playbook after installation)
+- **Firewall:** Configure firewall rules for Proxmox ports (8006, 5900-5999 for VNC, etc.)
 - **Firewall:** Default deny incoming, allow outgoing
 - **Fail2ban:** Automatic IP banning for failed login attempts
 - **Kernel:** IP forwarding disabled, source routing disabled, SYN cookies enabled
