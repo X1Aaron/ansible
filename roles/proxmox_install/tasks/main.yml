@@ -94,7 +94,8 @@
     - name: Remove any remaining Proxmox repository files with wrong configuration
       shell: |
         REMOVED=""
-        # Check all possible repository file locations
+        # Check all possible repository file locations - ONLY Proxmox-specific files
+        # We only target files with 'pve' or 'proxmox' in the name to avoid touching Debian repos
         for file in /etc/apt/sources.list.d/pve*.sources /etc/apt/sources.list.d/pve*.list /etc/apt/sources.list.d/proxmox*.list /etc/apt/sources.list.d/proxmox*.sources; do
           if [ -f "$file" ]; then
             # Remove if it has wrong component 'pve' (enterprise) instead of 'pve-no-subscription'
@@ -108,13 +109,16 @@
             fi
           fi
         done
-        # Also check main sources.list file
+        # Also check main sources.list file - but ONLY for Proxmox-specific entries
+        # We use very specific patterns to ONLY match Proxmox repos, never Debian repos
         if [ -f /etc/apt/sources.list ]; then
-          if grep -qE "enterprise\.proxmox\.com/debian/pve" /etc/apt/sources.list 2>/dev/null || grep -qE "pve\s+pve[^-]" /etc/apt/sources.list 2>/dev/null; then
-            # Comment out problematic lines instead of removing (safer)
-            sed -i 's|.*enterprise\.proxmox\.com/debian/pve.*|# &|' /etc/apt/sources.list
-            sed -i 's|.*pve\s\+pve[^-].*|# &|' /etc/apt/sources.list
-            REMOVED="$REMOVED /etc/apt/sources.list (commented)"
+          # Only comment out lines that contain BOTH "proxmox" AND "pve" to avoid false positives
+          # This ensures we never touch Debian repository lines
+          if grep -qE "enterprise\.proxmox\.com/debian/pve" /etc/apt/sources.list 2>/dev/null || grep -qE "download\.proxmox\.com/debian/pve.*pve[^-]" /etc/apt/sources.list 2>/dev/null; then
+            # Comment out ONLY Proxmox-specific lines - very targeted sed patterns
+            sed -i '/enterprise\.proxmox\.com\/debian\/pve/s/^/# /' /etc/apt/sources.list
+            sed -i '/download\.proxmox\.com\/debian\/pve.*pve[^-]/s/^/# /' /etc/apt/sources.list
+            REMOVED="$REMOVED /etc/apt/sources.list (commented Proxmox entries only)"
           fi
         fi
         if [ -n "$REMOVED" ]; then
