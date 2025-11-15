@@ -85,10 +85,15 @@
         - users_to_delete | length > 0
         - delete_result.changed
     
+    - name: Get protected users that were skipped
+      set_fact:
+        protected_skipped: "{{ (users_with_uid | default([]) | selectattr('uid', '<', 1000) | list) + (users_with_uid | default([]) | selectattr('name', 'in', protected_users | default([])) | list) }}"
+      when: users_with_uid is defined
+    
     - name: Warn about protected users that were skipped
       debug:
         msg: "Skipped deletion of protected/system user '{{ item.name }}' (UID: {{ item.uid }})"
-      loop: "{{ users_with_uid | default([]) | selectattr('uid', '<', 1000) | list + users_with_uid | default([]) | selectattr('name', 'in', protected_users) | list }}"
+      loop: "{{ protected_skipped | default([]) }}"
       when: 
-        - users_with_uid | default([]) | length > 0
-        - (users_with_uid | default([]) | selectattr('uid', '<', 1000) | list | length > 0) or (users_with_uid | default([]) | selectattr('name', 'in', protected_users) | list | length > 0)
+        - protected_skipped is defined
+        - protected_skipped | length > 0
