@@ -1,8 +1,18 @@
 # SSH Access Issues After Proxmox Installation
 
-If you can't access SSH after booting into the PVE kernel, follow these steps from the console:
+If you can't access SSH after booting into the PVE kernel, follow these steps from the console or recovery mode.
 
-## Quick Diagnosis (from console)
+## Accessing Recovery Mode
+
+If you can't access SSH, use recovery mode:
+1. Boot the system
+2. At GRUB menu, select the PVE kernel entry
+3. Press `e` to edit
+4. Find the line starting with `linux` and add `systemd.unit=rescue.target` at the end
+5. Press `Ctrl+X` to boot into recovery mode
+6. You'll be dropped into a root shell
+
+## Quick Diagnosis (from console or recovery mode)
 
 1. **Check if SSH service is running:**
    ```bash
@@ -31,52 +41,75 @@ If you can't access SSH after booting into the PVE kernel, follow these steps fr
 
 ### Fix 1: Enable SSH service
 ```bash
-sudo systemctl enable ssh
-sudo systemctl start ssh
+# In recovery mode, you're already root, so no sudo needed
+systemctl enable ssh
+systemctl start ssh
 # or
-sudo systemctl enable sshd
-sudo systemctl start sshd
+systemctl enable sshd
+systemctl start sshd
+
+# If in recovery mode, remount filesystem as read-write first:
+mount -o remount,rw /
 ```
 
 ### Fix 2: Allow SSH in UFW
 ```bash
+# In recovery mode, remount filesystem first:
+mount -o remount,rw /
+
 # Get SSH port from config
 SSH_PORT=$(grep -E '^Port|^#Port' /etc/ssh/sshd_config | tail -1 | sed 's/^#Port/Port/' | awk '{print $2}')
 SSH_PORT=${SSH_PORT:-22}
 
 # Allow SSH in UFW
-sudo ufw allow $SSH_PORT/tcp
-sudo ufw reload
+ufw allow $SSH_PORT/tcp
+ufw reload
+
+# Or temporarily disable UFW to test
+ufw disable
 ```
 
 ### Fix 3: Temporarily disable UFW (if needed)
 ```bash
-sudo ufw disable
+# In recovery mode, remount filesystem first:
+mount -o remount,rw /
+
+ufw disable
 # Test SSH access
-# Then re-enable: sudo ufw enable
+# Then re-enable: ufw enable
 ```
 
 ### Fix 4: Check SSH configuration
 ```bash
+# In recovery mode, remount filesystem first:
+mount -o remount,rw /
+
 # Test SSH config
-sudo sshd -t
+sshd -t
 
 # If config is bad, restore backup
-sudo cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
-sudo systemctl restart ssh
+cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
+systemctl restart ssh
 ```
 
 ### Fix 5: Check network interface
 ```bash
+# In recovery mode, remount filesystem first:
+mount -o remount,rw /
+
 # Check if network is up
 ip addr show
 # or
 ifconfig
 
 # If network is down, bring it up
-sudo ifup <interface_name>
+ifup <interface_name>
 # or restart networking
-sudo systemctl restart networking
+systemctl restart networking
+
+# In recovery mode, you may need to exit rescue mode first:
+exit
+# Then the system will continue normal boot
 ```
 
 ## Common Issues
