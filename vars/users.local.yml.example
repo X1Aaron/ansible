@@ -17,18 +17,51 @@
 # END OF HEADER - YOU CAN DELETE EVERYTHING ABOVE THIS LINE AFTER COPYING
 # ============================================================================
 
-# Users - The variables file is the source of truth
-# Users in this list will be created or updated to match
-# Users removed from this list will be deleted (if remove_orphaned_users is true)
-users: []                                 # [REQUIRED] List of users to manage (can be empty)
-# Example user - modify as needed:
-- name: my_user                           # [REQUIRED] Username
-  # groups: ['sudo']                      # [OPTIONAL] Groups to add user to (e.g., ['sudo', 'docker'])
-  ssh_public_key: "ssh-rsa AAAAB3..."     # [RECOMMENDED] Your SSH public key
-  # sudo_passwordless: true               # [OPTIONAL] Passwordless sudo (only if user is in 'sudo' group)
-  # password: "$6$..."                    # [OPTIONAL] Password hash (for console login)
-  # comment: "My user"                    # [OPTIONAL] User description
+# ============================================================================
+# USER MANAGEMENT CONFIGURATION
+# ============================================================================
+# 
+# To add a new user: Copy the entire user block below and paste it below
+# the existing users. Then modify the name and other fields as needed.
+# 
+# Users in this list will be created or updated to match.
+# Users removed from this list will be deleted (if remove_orphaned_users is true).
+# 
+# ============================================================================
 
-# Options
+users:
+  # ========================================================================
+  # User 1 - Modify this user or copy this entire block to add more users
+  # ========================================================================
+  - name: my_user                           # [REQUIRED] Username
+    # groups: ['sudo']                      # [OPTIONAL] Groups to add user to (e.g., ['sudo', 'docker'])
+    ssh_public_key: "ssh-rsa AAAAB3..."     # [RECOMMENDED] Your SSH public key
+    # sudo_passwordless: true               # [OPTIONAL] Passwordless sudo (only if user is in 'sudo' group)
+    # password: "$6$..."                    # [OPTIONAL] Password hash (for console login)
+    # comment: "My user"                    # [OPTIONAL] User description
+
+  # ========================================================================
+  # User 2 - Copy the block above, paste here, and modify
+  # ========================================================================
+  # - name: another_user                    # [REQUIRED] Username
+  #   # groups: ['sudo']                    # [OPTIONAL] Groups to add user to
+  #   ssh_public_key: "ssh-rsa AAAAB3..."    # [RECOMMENDED] Your SSH public key
+  #   # sudo_passwordless: true             # [OPTIONAL] Passwordless sudo
+  #   # password: "$6$..."                 # [OPTIONAL] Password hash
+  #   # comment: "Another user"             # [OPTIONAL] User description
+
+  # ========================================================================
+  # User 3 - Copy the block above, paste here, and modify
+  # ========================================================================
+  # - name: third_user                      # [REQUIRED] Username
+  #   # groups: ['sudo']                    # [OPTIONAL] Groups to add user to
+  #   ssh_public_key: "ssh-rsa AAAAB3..."    # [RECOMMENDED] Your SSH public key
+  #   # sudo_passwordless: true             # [OPTIONAL] Passwordless sudo
+  #   # password: "$6$..."                 # [OPTIONAL] Password hash
+  #   # comment: "Third user"              # [OPTIONAL] User description
+
+# ============================================================================
+# OPTIONS
+# ============================================================================
 # remove_orphaned_users: false             # [OPTIONAL] Set to true to delete users not in the 'users' list above
 
