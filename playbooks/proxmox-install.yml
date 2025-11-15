@@ -3,11 +3,19 @@
   hosts: localhost
   become: yes
   vars_files:
-    # Load your Proxmox configuration from this file
-    # This file is NOT in git - it stays on your server only
+    # Optional: Load your Proxmox configuration from this file
+    # If this file doesn't exist, defaults will be used (Debian 13/Trixie)
     # Create it: cp vars/proxmox.local.yml.example vars/proxmox.local.yml
     # Then edit it with your server-specific Proxmox settings
     - ../vars/proxmox.local.yml
+  
+  vars:
+    # Defaults - will be overridden by vars/proxmox.local.yml if it exists
+    proxmox_release: "{{ proxmox_release | default('trixie') }}"
+    proxmox_update_system: "{{ proxmox_update_system | default(true) }}"
+    proxmox_install_packages: "{{ proxmox_install_packages | default(true) }}"
+    proxmox_configure: "{{ proxmox_configure | default(true) }}"
+    proxmox_reboot_after_install: "{{ proxmox_reboot_after_install | default(true) }}"
   
   roles:
     - role: proxmox_install

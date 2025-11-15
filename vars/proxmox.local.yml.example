@@ -10,8 +10,9 @@
 #   nano vars/proxmox.local.yml
 
 # Proxmox release version
-# Options: 'trixie' (Debian 13), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
-proxmox_release: bookworm
+# Options: 'trixie' (Debian 13 - default), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
+# If this file doesn't exist, defaults to 'trixie' (Debian 13)
+proxmox_release: trixie
 
 # System update before installation
 proxmox_update_system: true
