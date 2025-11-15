@@ -66,11 +66,13 @@ echo "Next steps:"
 echo "1. Edit vars/users.local.yml with your user configuration"
 echo "2. Edit vars/hardening.local.yml (add your IP to hardening_ssh_allowed_sources)"
 echo "3. Run playbooks:"
-echo "   cd /opt/ansible"
 echo "   ansible-playbook playbooks/user-management.yml"
 echo "   ansible-playbook playbooks/proxmox-install.yml  # If installing Proxmox"
 echo "   ansible-playbook playbooks/hardening-firewall.yml  # Test firewall first!"
 echo ""
-echo "Repository location: /opt/ansible"
+echo "You are now in: $(pwd)"
 echo "=========================================="
+
+# Change to ansible directory
+cd "$INSTALL_DIR"
 
