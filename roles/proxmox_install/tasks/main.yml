@@ -142,23 +142,36 @@
         mode: '0644'
       when: gpg_key_check.stat.exists
 
-    - name: Remove any incorrectly configured enterprise repository
+    - name: Remove any incorrectly configured enterprise repository files
       file:
-        path: /etc/apt/sources.list.d/pve-enterprise.list
+        path: "{{ item }}"
         state: absent
+      loop:
+        - /etc/apt/sources.list.d/pve-enterprise.list
+        - /etc/apt/sources.list.d/pve.list
       ignore_errors: yes
 
-    - name: Remove any old repository files with wrong component
+    - name: Remove any old repository files with wrong component or enterprise URL
       shell: |
-        if [ -f /etc/apt/sources.list.d/pve-install-repo.sources ]; then
-          # Check if it has wrong component 'pve' instead of 'pve-no-subscription'
-          if grep -q "Components: pve$" /etc/apt/sources.list.d/pve-install-repo.sources; then
-            rm -f /etc/apt/sources.list.d/pve-install-repo.sources
-            echo "removed"
+        REMOVED=""
+        for file in /etc/apt/sources.list.d/pve*.sources /etc/apt/sources.list.d/pve*.list; do
+          if [ -f "$file" ]; then
+            # Check if it has wrong component 'pve' instead of 'pve-no-subscription'
+            if grep -q "Components: pve$" "$file" 2>/dev/null; then
+              rm -f "$file"
+              REMOVED="$REMOVED $file"
+            # Check if it uses enterprise URL
+            elif grep -q "enterprise.proxmox.com" "$file" 2>/dev/null; then
+              rm -f "$file"
+              REMOVED="$REMOVED $file"
+            fi
           fi
+        done
+        if [ -n "$REMOVED" ]; then
+          echo "removed:$REMOVED"
         fi
       register: removed_old_repo
-      changed_when: removed_old_repo.stdout == "removed"
+      changed_when: "'removed:' in removed_old_repo.stdout"
       failed_when: false
 
     - name: Add Proxmox VE repository (fallback to old format)
