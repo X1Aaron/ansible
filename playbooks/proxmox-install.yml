@@ -4,9 +4,15 @@
   become: yes
   
   pre_tasks:
+    - name: Check if configuration file exists
+      stat:
+        path: ../vars/proxmox.local.yml
+      register: proxmox_config_file
+    
     - name: Load optional configuration file
       include_vars:
         file: ../vars/proxmox.local.yml
+      when: proxmox_config_file.stat.exists
       ignore_errors: yes
     
     - name: Set defaults if not already set
