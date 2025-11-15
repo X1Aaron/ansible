@@ -70,11 +70,10 @@
           
           See: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie
           ============================================================================
-      when:
-        - or
-        - not has_valid_ip | default(false) | bool
-        - is_loopback | default(false) | bool
-        - hostname_ip_check.rc != 0
+      when: >
+        (not (has_valid_ip | default(false) | bool)) or
+        (is_loopback | default(false) | bool) or
+        (hostname_ip_check.rc != 0)
 
 - name: Map Debian version to Proxmox release
   set_fact:
