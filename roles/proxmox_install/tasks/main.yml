@@ -102,10 +102,30 @@
 
 - name: Add Proxmox VE repository
   block:
+    - name: Remove existing GPG key if present
+      file:
+        path: /etc/apt/trusted.gpg.d/proxmox-release.gpg
+        state: absent
+      ignore_errors: yes
+
     - name: Add Proxmox VE repository key
       shell: |
         wget -qO- "https://enterprise.proxmox.com/debian/proxmox-release-{{ proxmox_release_mapped }}.gpg" | gpg --batch --no-tty --dearmor -o /etc/apt/trusted.gpg.d/proxmox-release.gpg
       ignore_errors: yes
+
+    - name: Verify GPG key was added
+      stat:
+        path: /etc/apt/trusted.gpg.d/proxmox-release.gpg
+      register: gpg_key_check
+      ignore_errors: yes
+
+    - name: Warn if GPG key failed
+      debug:
+        msg: |
+          ⚠️  WARNING: GPG key download may have failed.
+          This could prevent packages from being available.
+          Check: ls -la /etc/apt/trusted.gpg.d/proxmox-release.gpg
+      when: not gpg_key_check.stat.exists
 
     - name: Add Proxmox VE community repository (free)
       apt_repository:
@@ -272,6 +292,12 @@
         - reboot_required.stdout == "yes"
         - ansible_connection == "local"
 
+- name: Get system hostname
+  command: hostname
+  register: system_hostname
+  changed_when: false
+  failed_when: false
+
 - name: Display installation summary
   debug:
     msg: |
@@ -279,7 +305,7 @@
       
       Next steps:
       1. Reboot the system if required
-      2. Access the web interface at: https://{{ proxmox_hostname | default(ansible_hostname) }}:8006
+      2. Access the web interface at: https://{{ proxmox_hostname | default(system_hostname.stdout) }}:8006
       3. Login with root credentials
       4. Configure your storage and network settings
       
