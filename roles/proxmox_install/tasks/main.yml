@@ -412,21 +412,9 @@
   when: proxmox_reboot_after_install | default(true)
   block:
     - name: Check if reboot is required
-      shell: test -f /var/run/reboot-required && echo "yes" || echo "no"
-      register: reboot_required
-      changed_when: false
-      failed_when: false
-
-    - name: Detect if running on localhost
-      shell: |
-        if [ "$(hostname)" = "localhost" ] || [ "$(hostname -s)" = "localhost" ] || [ -z "$SSH_CONNECTION" ]; then
-          echo "yes"
-        else
-          echo "no"
-        fi
-      register: is_localhost
-      changed_when: false
-      failed_when: false
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_file
 
     - name: Ask user if they want to reboot
       pause:
@@ -438,25 +426,21 @@
           A reboot is required to complete the Proxmox VE installation.
           
           Do you want to reboot now? (yes/no)
-          {% if is_localhost.stdout == "yes" %}
-          
-          Note: Running on localhost - you'll need to reboot manually.
-          {% endif %}
           ============================================================================
         echo: yes
       register: reboot_prompt
-      when: reboot_required.stdout == "yes"
+      when: reboot_file.stat.exists
       failed_when: false
 
-    - name: Reboot system (remote only)
+    - name: Attempt to reboot system
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
         connect_timeout: 5
       when: 
-        - reboot_required.stdout == "yes"
-        - is_localhost.stdout == "no"
+        - reboot_file.stat.exists
         - reboot_prompt.user_input | default('no') | lower == 'yes'
+      ignore_errors: yes
       
     - name: Remind user to reboot manually
       debug:
@@ -469,8 +453,8 @@
           $ sudo reboot
           ============================================================================
       when: 
-        - reboot_required.stdout == "yes"
-        - (is_localhost.stdout == "yes" or reboot_prompt.user_input | default('no') | lower != 'yes')
+        - reboot_file.stat.exists
+        - reboot_prompt.user_input | default('no') | lower != 'yes'
 
 - name: Get system hostname
   command: hostname
