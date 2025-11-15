@@ -40,11 +40,11 @@ users:
   # USER 1 - Modify this user or copy this entire block to add more users
   # ========================================================================
   - name: my_user                                    # [REQUIRED] Username
-    # groups: ['sudo']                               # [OPTIONAL] Groups to add user to (e.g., ['sudo', 'docker'])
+    groups: ['sudo']                                 # [OPTIONAL] Groups to add user to (e.g., ['sudo', 'docker'])
     ssh_public_key: "ssh-rsa AAAAB3..."              # [RECOMMENDED] Your SSH public key
-    # sudo_passwordless: true                         # [OPTIONAL] Passwordless sudo (only if user is in 'sudo' group)
-    # password: "$6$..."                             # [OPTIONAL] Password hash (for console login)
-    # comment: "My user"                             # [OPTIONAL] User description
+    sudo_passwordless: true                           # [OPTIONAL] Passwordless sudo (only if user is in 'sudo' group)
+    password: "$6$..."                               # [OPTIONAL] Password hash (for console login)
+    comment: "My user"                                # [OPTIONAL] User description
 
   # ========================================================================
   # USER 2 - Copy any user block above, paste here, and modify
