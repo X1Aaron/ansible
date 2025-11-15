@@ -22,6 +22,13 @@ if [ -d "/opt/ansible/.git" ]; then
     echo "Repository already exists, syncing..."
     cd /opt/ansible
     git fetch origin
+    
+    # Check if there are uncommitted changes
+    if ! git diff-index --quiet HEAD --; then
+        echo "⚠️  Warning: Uncommitted changes detected. Stashing them..."
+        git stash push -m "Auto-stash before sync at $(date)"
+    fi
+    
     git pull origin main
     sudo chown -R $USER:$USER /opt/ansible
 else
