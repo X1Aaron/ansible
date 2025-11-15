@@ -51,11 +51,21 @@
   block:
     - name: Get users to delete (exist on system but not in variables)
       set_fact:
-        users_to_delete: "{{ existing_user_names | difference(users | default([]) | map(attribute='name') | list) }}"
+        candidate_users_to_delete: "{{ existing_user_names | difference(users | default([]) | map(attribute='name') | list) }}"
     
-    - name: Filter out system users (UID < 1000) from deletion
+    - name: Get UID for each candidate user
       set_fact:
-        users_to_delete: "{{ users_to_delete | reject('in', system_users | default([])) | list }}"
+        users_with_uid: "{{ users_with_uid | default([]) + [{'name': item, 'uid': existing_users.ansible_facts.getent_passwd[item][1] | int}] }}"
+      loop: "{{ candidate_users_to_delete }}"
+      when: candidate_users_to_delete | length > 0
+    
+    - name: Filter out system users (UID < 1000) and protected accounts
+      set_fact:
+        protected_users: "{{ protected_users | default(['root']) + (system_users | default([])) }}"
+    
+    - name: Build final list of users to delete (exclude system users and protected)
+      set_fact:
+        users_to_delete: "{{ users_with_uid | default([]) | selectattr('uid', '>=', 1000) | selectattr('name', 'not in', protected_users) | map(attribute='name') | list }}"
     
     - name: Remove orphaned user accounts
       user:
@@ -74,3 +84,11 @@
       when: 
         - users_to_delete | length > 0
         - delete_result.changed
+    
+    - name: Warn about protected users that were skipped
+      debug:
+        msg: "Skipped deletion of protected/system user '{{ item.name }}' (UID: {{ item.uid }})"
+      loop: "{{ users_with_uid | default([]) | selectattr('uid', '<', 1000) | list + users_with_uid | default([]) | selectattr('name', 'in', protected_users) | list }}"
+      when: 
+        - users_with_uid | default([]) | length > 0
+        - (users_with_uid | default([]) | selectattr('uid', '<', 1000) | list | length > 0) or (users_with_uid | default([]) | selectattr('name', 'in', protected_users) | list | length > 0)

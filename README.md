@@ -130,6 +130,7 @@ users:
 # Options
 remove_orphaned_users: false  # Set to true to delete users not in 'users' list
 remove_home_on_delete: false  # Remove home directory when deleting users
+# Note: System users (UID < 1000) and root are ALWAYS protected from deletion
 ```
 
 #### Options

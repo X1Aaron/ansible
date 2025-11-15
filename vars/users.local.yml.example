@@ -28,4 +28,4 @@ users:
 remove_orphaned_users: false  # Set to true to delete users not in the 'users' list above
 remove_home_on_delete: false  # Set to true to remove home directory when deleting users
 force_remove: false  # Set to true to force removal even if user is logged in
-system_users: []  # List of system users to never delete (e.g., ['root', 'daemon'])
+system_users: []  # Additional system users to protect (root is always protected, UID < 1000 are always protected)
