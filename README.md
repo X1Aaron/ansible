@@ -74,7 +74,7 @@ Automate user account creation, modification, and deletion on local servers.
 
 1. **Create your variables file:**
    ```bash
-   cp examples/vars/users.local.yml.example vars/users.local.yml
+   cp examples/users.local.yml.example vars/users.local.yml
    nano vars/users.local.yml
    ```
 
@@ -213,7 +213,7 @@ Automate server security hardening using industry best practices.
 
 1. **Create your hardening configuration:**
    ```bash
-   cp examples/vars/hardening.local.yml.example vars/hardening.local.yml
+   cp examples/hardening.local.yml.example vars/hardening.local.yml
    nano vars/hardening.local.yml
    ```
 
