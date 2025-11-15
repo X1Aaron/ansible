@@ -358,10 +358,11 @@
     - name: Create SSH whitelist sources file for dynamic updates
       copy:
         content: |
-          # SSH Whitelist Sources
-          # This file is used by the UFW SSH whitelist update script
+          # Trusted Source Whitelist
+          # This file is used by the UFW whitelist update script
           # One source per line (IP, CIDR, or hostname)
-          # Hostnames will be resolved to IPs every 5 minutes
+          # Hostnames will be resolved to IPs every minute
+          # Whitelisted IPs are allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
           {% for source in hardening_ssh_allowed_sources | default([]) %}
           {{ source }}
           {% endfor %}
