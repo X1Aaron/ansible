@@ -2,6 +2,13 @@
 
 This Ansible project provides automation for managing users on a local server. All operations run against localhost.
 
+## Overview
+
+This project separates **code** (in git, syncs to GitHub) from **variables** (your user data, stays on server).
+
+- **Code** = Playbooks, roles, config (syncs to GitHub)
+- **Variables** = One file (`vars/users.local.yml`) with all your users, passwords, SSH keys (stays on server)
+
 ## Project Structure
 
 ```
@@ -16,81 +23,65 @@ This Ansible project provides automation for managing users on a local server. A
 │       └── tasks/
 │           └── main.yml    # User management tasks
 ├── vars/
-│   └── users.yml           # User definitions
-├── docs/
-│   └── SERVER_SETUP.md     # Server setup and sync guide
+│   ├── users.yml           # Template (don't edit on server)
+│   └── users.local.yml      # YOUR file (edit this - not in git)
 ├── scripts/
-│   ├── generate-password-hash.sh  # Generate password hashes
-│   └── vault-helper.sh     # Vault management helper
-├── sync-repo.sh            # Script to sync repository on server
+│   └── generate-password-hash.sh
 └── README.md
 ```
 
-## Server Setup and Sync
+## How It Works
 
-To download and keep this repository in sync on your server:
+### Code vs Variables
 
-**Initial Setup:**
-```bash
-git clone https://github.com/X1Aaron/ansible.git
-cd ansible
-```
+**CODE (Synced to GitHub):**
+- `playbooks/user-management.yml` - The playbook
+- `roles/user_management/tasks/main.yml` - Code that creates users
+- `ansible.cfg`, `inventory/` - Configuration
+- These files sync to GitHub and update when you run `git pull`
 
-**Keep in Sync:**
-```bash
-cd ansible
-git pull origin main
-```
+**VARIABLES (Stays on Server):**
+- `vars/users.local.yml` - **This is your variables file**
+- Contains ALL your users, passwords, SSH keys, groups, etc.
+- Is in `.gitignore` - will NEVER sync to GitHub
+- Stays on your server only
+- **This is the ONLY file you need to edit**
 
-For detailed instructions on automated syncing, cron jobs, and best practices, see [docs/SERVER_SETUP.md](docs/SERVER_SETUP.md).
+### The Flow
+
+1. You edit `vars/users.local.yml` (your variables)
+2. Playbook loads `vars/users.local.yml` (reads your variables)
+3. Role uses variables to create users
+4. You sync: `git pull` updates code, but your variables file stays untouched
 
 ## Quick Start
 
-**On your server:**
-1. Clone the repository: `git clone https://github.com/X1Aaron/ansible.git && cd ansible`
-2. Create your user file: `cp vars/users.local.yml.example vars/users.local.yml`
-3. Edit users: `nano vars/users.local.yml` (put ALL your users, passwords, SSH keys here)
-4. Run playbook: `ansible-playbook playbooks/user-management.yml -e "user_action=create"`
+### On Your Server:
 
-**That's it!** Everything goes in one file: `vars/users.local.yml` - it's the only file you need to edit.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/X1Aaron/ansible.git
+   cd ansible
+   ```
 
-## Prerequisites
+2. **Create your variables file:**
+   ```bash
+   cp vars/users.local.yml.example vars/users.local.yml
+   nano vars/users.local.yml
+   ```
 
-- Ansible installed on your system
-- Sudo/root access for user management operations
-- Python installed (for Ansible modules)
+3. **Add your users** (see examples below)
 
-### Installing Ansible
-
-**On Windows (WSL or Linux subsystem):**
-```bash
-sudo apt update
-sudo apt install ansible
-```
-
-**On Linux:**
-```bash
-sudo apt install ansible  # Debian/Ubuntu
-sudo yum install ansible   # RHEL/CentOS
-```
-
-**On macOS:**
-```bash
-brew install ansible
-```
+4. **Run the playbook:**
+   ```bash
+   ansible-playbook playbooks/user-management.yml -e "user_action=create"
+   ```
 
 ## Usage
 
-### 1. Create Users
+### Create Users
 
-**On your server**, create and edit your user file (this is the ONLY file you need to edit):
-
-```bash
-cp vars/users.local.yml.example vars/users.local.yml
-nano vars/users.local.yml
-```
-
-Define all your users, passwords, and SSH keys in this one file:
+Edit `vars/users.local.yml`:
 
 ```yaml
 users_to_create:
@@ -99,19 +90,18 @@ users_to_create:
     shell: /bin/bash
     comment: "John Doe - Developer"
     create_home: true
-    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-public-key-here"
-    # Optional: password hash (generate with: python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))")
-    # password: "$6$rounds=656000$salt$hashed_password"
+    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-public-key"
+    password: "$6$rounds=656000$salt$hashed_password"  # Optional
 ```
 
-Run the playbook:
+Run:
 ```bash
 ansible-playbook playbooks/user-management.yml -e "user_action=create"
 ```
 
-### 2. Modify Users
+### Modify Users
 
-Edit `vars/users.local.yml` and define modifications under `users_to_modify`:
+Edit `vars/users.local.yml`:
 
 ```yaml
 users_to_modify:
@@ -121,14 +111,14 @@ users_to_modify:
     shell: /bin/zsh
 ```
 
-Run the playbook:
+Run:
 ```bash
 ansible-playbook playbooks/user-management.yml -e "user_action=modify"
 ```
 
-### 3. Delete Users
+### Delete Users
 
-Edit `vars/users.local.yml` and list users under `users_to_delete`:
+Edit `vars/users.local.yml`:
 
 ```yaml
 users_to_delete:
@@ -136,7 +126,7 @@ users_to_delete:
   - old_user2
 ```
 
-Run the playbook:
+Run:
 ```bash
 ansible-playbook playbooks/user-management.yml -e "user_action=delete"
 ```
@@ -146,37 +136,20 @@ To also remove home directories:
 ansible-playbook playbooks/user-management.yml -e "user_action=delete" -e "remove_home=true"
 ```
 
-### 4. List All Users
+### List All Users
 
-List all users on the system:
 ```bash
 ansible-playbook playbooks/user-management.yml -e "user_action=list"
 ```
 
-## User Configuration Options
-
-### Available Fields for User Creation/Modification
-
-- `name`: Username (required)
-- `groups`: List of groups the user should belong to
-- `append`: Add groups to existing groups (default: true)
-- `shell`: Login shell (default: /bin/bash)
-- `home`: Home directory path
-- `create_home`: Create home directory (default: true)
-- `comment`: User description/comment
-- `password`: Password hash (generate with Python crypt - see Password Management section)
-- `password_lock`: Lock the password (default: false)
-- `system`: Create as system user (default: false)
-- `uid`: Specific UID for the user
-- `ssh_public_key`: Add your public SSH key to user's authorized_keys (recommended)
-- `ssh_keys_exclusive`: Replace all existing keys (default: false, adds to existing keys)
-- `generate_ssh_key`: Generate SSH key for user (default: false, not recommended - use ssh_public_key instead)
-- `ssh_key_type`: SSH key type (default: rsa)
-- `ssh_key_bits`: SSH key bits (default: 2048)
-
 ## Password Management
 
-**Important:** Linux requires passwords in hash format, not plain text.
+### Why Password Hashes?
+
+Linux doesn't store plain text passwords. It stores encrypted versions called "hashes". Ansible's `user` module requires passwords in hash format.
+
+**You type:** `mypassword123`  
+**Linux needs:** `$6$rounds=656000$salt$verylonghash`
 
 ### Generate Password Hash
 
@@ -195,64 +168,185 @@ users_to_create:
 
 **Note:** `vars/users.local.yml` is in `.gitignore` and will NOT sync to GitHub, so your passwords stay on your server.
 
-## Examples
+## SSH Keys
 
-### Example 1: Create a developer user with sudo access
+### Get Your Public Key
+
+On your local machine:
+```bash
+cat ~/.ssh/id_rsa.pub
+# Or
+cat ~/.ssh/id_ed25519.pub
+```
+
+### Add to User
+
+In `vars/users.local.yml`:
+
 ```yaml
 users_to_create:
-  - name: developer
-    groups: ['sudo']
-    shell: /bin/bash
-    comment: "Development User"
-    create_home: true
-    generate_ssh_key: true
+  - name: my_user
+    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-full-key"
 ```
 
-### Example 2: Add user to additional groups
+The playbook will automatically add it to the user's `~/.ssh/authorized_keys`.
+
+### Multiple Keys
+
+Keys are added (not replaced) by default. To replace all existing keys:
+
 ```yaml
-users_to_modify:
-  - name: developer
-    groups: ['docker', 'www-data']
-    append: true
+users_to_create:
+  - name: my_user
+    ssh_public_key: "ssh-rsa AAAAB3..."
+    ssh_keys_exclusive: true  # Replaces all existing keys
 ```
 
-### Example 3: Create multiple users at once
+## Configuration Options
+
+### Available Fields for User Creation/Modification
+
+- `name`: Username (required)
+- `groups`: List of groups the user should belong to
+- `append`: Add groups to existing groups (default: true)
+- `shell`: Login shell (default: /bin/bash)
+- `home`: Home directory path
+- `create_home`: Create home directory (default: true)
+- `comment`: User description/comment
+- `password`: Password hash (generate with Python crypt - see Password Management)
+- `password_lock`: Lock the password (default: false)
+- `system`: Create as system user (default: false)
+- `uid`: Specific UID for the user
+- `ssh_public_key`: Add your public SSH key to user's authorized_keys (recommended)
+- `ssh_keys_exclusive`: Replace all existing keys (default: false, adds to existing keys)
+
+## Complete Example
+
+Here's a complete `vars/users.local.yml` example:
+
 ```yaml
+---
 users_to_create:
   - name: alice
-    groups: ['sudo']
-    comment: "Alice Smith"
+    groups: ['sudo', 'docker']
+    shell: /bin/bash
+    comment: "Alice - DevOps Engineer"
+    create_home: true
+    ssh_public_key: "ssh-rsa AAAAB3... alice@laptop"
+    password: "$6$rounds=656000$abc123$xyz789..."
+
   - name: bob
-    groups: ['docker']
-    comment: "Bob Johnson"
-  - name: charlie
     groups: ['www-data']
-    comment: "Charlie Brown"
+    shell: /bin/bash
+    comment: "Bob - Web Developer"
+    create_home: true
+    ssh_public_key: "ssh-ed25519 AAAAC3... bob@workstation"
+    # No password - SSH key only
+
+users_to_modify:
+  - name: existing_user
+    groups: ['sudo']
+    append: true
+
+users_to_delete:
+  - old_user
+```
+
+## Server Setup and Sync
+
+### Initial Setup
+
+```bash
+git clone https://github.com/X1Aaron/ansible.git
+cd ansible
+cp vars/users.local.yml.example vars/users.local.yml
+nano vars/users.local.yml
+```
+
+### Keeping Repository in Sync
+
+**Manual sync:**
+```bash
+cd ansible
+git pull origin main
+```
+
+Your `vars/users.local.yml` file will **never** be touched because it's in `.gitignore`.
+
+**Automated sync with cron:**
+
+Create a script:
+```bash
+#!/bin/bash
+REPO_DIR="/path/to/ansible"
+cd "$REPO_DIR"
+git fetch origin
+git pull origin main
+```
+
+Add to crontab:
+```bash
+crontab -e
+# Sync every hour
+0 * * * * /path/to/sync-repo.sh >> /var/log/ansible-sync.log 2>&1
+```
+
+## Prerequisites
+
+- Ansible installed on your system
+- Sudo/root access for user management operations
+- Python installed (for Ansible modules)
+
+### Installing Ansible
+
+**On Linux:**
+```bash
+sudo apt install ansible  # Debian/Ubuntu
+sudo yum install ansible   # RHEL/CentOS
+```
+
+**On macOS:**
+```bash
+brew install ansible
+```
+
+**On Windows (WSL):**
+```bash
+sudo apt update
+sudo apt install ansible
 ```
 
 ## Troubleshooting
 
-### Permission Denied
+### "File not found" error
+
+If the playbook complains about missing `vars/users.local.yml`:
+```bash
+cp vars/users.local.yml.example vars/users.local.yml
+```
+
+### Permission denied
+
 Ensure you have sudo access:
 ```bash
 sudo ansible-playbook playbooks/user-management.yml -e "user_action=create"
 ```
 
-### Connection Issues
-Verify localhost connection:
-```bash
-ansible localhost -m ping
-```
+### Check Ansible version
 
-### Check Ansible Version
 ```bash
 ansible --version
 ```
 
-## Additional Notes
+### Test connection
 
-- All operations require root/sudo privileges
-- The playbook uses `become: yes` to escalate privileges
-- User operations are idempotent (safe to run multiple times)
-- The `list` action is read-only and doesn't require any user definitions
+```bash
+ansible localhost -m ping
+```
 
+## Summary
+
+- **Edit:** `vars/users.local.yml` (your variables file)
+- **Code:** Syncs from GitHub automatically
+- **Variables:** Stay on your server (not in git)
+- **One file:** All your users, passwords, SSH keys in one place
