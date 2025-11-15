@@ -46,12 +46,13 @@ hardening_ssh_client_alive_count_max: 2  # RECOMMENDED: Client alive count max (
 hardening_ssh_config_backup: true        # RECOMMENDED: Backup SSH config before changes (default: true)
 
 # Trusted Source Whitelist
-hardening_ssh_allowed_sources:  # RECOMMENDED: List of trusted IPs/hostnames (add your IPs below)
-  # - "192.168.1.0/24"        # Example: Allow all ports from entire subnet (trusted network)
-  # - "10.0.0.5"              # Example: Allow all ports from specific IP (trusted host)
-  # - "2001:db8::/32"         # Example: Allow all ports from IPv6 subnet
-  # - "office.example.com"    # Example: Hostname (resolved to ALL IPs, updated every minute)
-  # - "vpn.company.com"       # Example: Hostname (resolved to ALL IPs, updated every minute)
+# Examples (uncomment and modify, or add your own):
+#   - "192.168.1.0/24"        # Allow all ports from entire subnet (trusted network)
+#   - "10.0.0.5"              # Allow all ports from specific IP (trusted host)
+#   - "2001:db8::/32"         # Allow all ports from IPv6 subnet
+#   - "office.example.com"    # Hostname (resolved to ALL IPs, updated every minute)
+#   - "vpn.company.com"       # Hostname (resolved to ALL IPs, updated every minute)
+hardening_ssh_allowed_sources: []  # RECOMMENDED: List of trusted IPs/hostnames (uncomment examples above or add your own)
 
 # Whitelist auto-update settings
 hardening_ssh_whitelist_auto_update: true  # OPTIONAL: Auto-update hostname IPs (default: true, only needed if using hostnames)
