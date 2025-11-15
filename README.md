@@ -18,7 +18,14 @@ This Ansible project provides automation for managing users on a local server. A
 ├── vars/
 │   └── users.yml           # User definitions
 ├── docs/
-│   └── SERVER_SETUP.md     # Server setup and sync guide
+│   ├── SERVER_SETUP.md     # Server setup and sync guide
+│   └── VAULT_GUIDE.md      # Ansible Vault usage guide
+├── vault/
+│   ├── passwords.yml        # Encrypted user passwords (vault)
+│   └── .gitkeep
+├── scripts/
+│   ├── generate-password-hash.sh  # Generate password hashes
+│   └── vault-helper.sh     # Vault management helper
 ├── sync-repo.sh            # Script to sync repository on server
 └── README.md
 ```
@@ -154,33 +161,62 @@ ansible-playbook playbooks/user-management.yml -e "user_action=list"
 
 ## Security Best Practices
 
-### Password Management
+### Password Management with Ansible Vault
 
-**Never store plaintext passwords in your playbooks!** Use Ansible Vault:
+**Never store plaintext passwords in your playbooks!** This project is configured to use Ansible Vault for secure password management.
 
-1. Create an encrypted password:
-```bash
-ansible-vault encrypt_string 'your_password' --name 'vaulted_password'
-```
+#### Quick Start with Vault
 
-2. Add the encrypted string to `vars/users.yml`:
-```yaml
-users_to_create:
-  - name: john_doe
-    password: !vault |
-      $ANSIBLE_VAULT;1.1;AES256
-      663864396539663161326462636239653...
-```
+1. **Create vault password file:**
+   ```bash
+   echo "your_secure_password" > .vault_pass
+   chmod 600 .vault_pass
+   ```
 
-3. Run playbooks with vault password:
-```bash
-ansible-playbook playbooks/user-management.yml -e "user_action=create" --ask-vault-pass
-```
+2. **Encrypt the vault file:**
+   ```bash
+   ansible-vault encrypt vault/passwords.yml
+   ```
 
-Or use a vault password file:
-```bash
-ansible-playbook playbooks/user-management.yml -e "user_action=create" --vault-password-file ~/.vault_pass
-```
+3. **Add passwords to vault:**
+   ```bash
+   ansible-vault edit vault/passwords.yml
+   ```
+   Add your passwords:
+   ```yaml
+   user_passwords:
+     john_doe: "$6$rounds=656000$..."
+   ```
+
+4. **Reference in users.yml:**
+   ```yaml
+   users_to_create:
+     - name: john_doe
+       groups: ['sudo']
+       # Password automatically looked up from vault
+   ```
+
+5. **Run playbooks (password file is auto-detected):**
+   ```bash
+   ansible-playbook playbooks/user-management.yml -e "user_action=create"
+   ```
+
+#### Helper Scripts
+
+- **Generate password hash:**
+  ```bash
+  chmod +x scripts/generate-password-hash.sh
+  ./scripts/generate-password-hash.sh
+  ```
+
+- **Vault helper:**
+  ```bash
+  chmod +x scripts/vault-helper.sh
+  ./scripts/vault-helper.sh view    # View vault file
+  ./scripts/vault-helper.sh edit    # Edit vault file
+  ```
+
+For detailed vault usage, see [docs/VAULT_GUIDE.md](docs/VAULT_GUIDE.md).
 
 ## Examples
 

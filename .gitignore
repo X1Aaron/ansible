@@ -1,7 +1,10 @@
 # Ansible
 *.retry
 .vault_pass
+.vault_pass_*
 *.vault
+vault/*.yml
+!vault/.gitkeep
 
 # Python
 __pycache__/

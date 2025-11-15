@@ -4,6 +4,9 @@
   become: yes
   vars_files:
     - ../vars/users.yml
+    # Vault file will be automatically decrypted if encrypted
+    # Create and encrypt it first: ansible-vault encrypt vault/passwords.yml
+    - ../vault/passwords.yml
   
   tasks:
     - name: Include user management role
