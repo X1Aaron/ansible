@@ -46,6 +46,28 @@
         - item.ssh_public_key | length > 0
       ignore_errors: false
 
+- name: Automatically grant /opt/ansible access to all users
+  block:
+    - name: Ensure /opt/ansible directory exists
+      file:
+        path: /opt/ansible
+        state: directory
+        mode: '0755'
+      failed_when: false
+
+    - name: Set ownership and permissions for /opt/ansible for each user
+      file:
+        path: /opt/ansible
+        state: directory
+        owner: "{{ item.name }}"
+        group: "{{ item.name }}"
+        mode: '0755'
+        recurse: false
+      loop: "{{ users | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}: /opt/ansible"
+      ignore_errors: yes
+
 - name: Set directory permissions for users
   block:
     - name: Set ownership and permissions for user directories
