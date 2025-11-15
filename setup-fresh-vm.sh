@@ -82,9 +82,8 @@ echo "   ansible-playbook playbooks/user-management.yml"
 echo "   ansible-playbook playbooks/proxmox-install.yml  # If installing Proxmox"
 echo "   ansible-playbook playbooks/hardening-firewall.yml  # Test firewall first!"
 echo ""
-echo "You are now in: $(pwd)"
 echo "=========================================="
-
-# Change to ansible directory
-cd /opt/ansible
+echo "To change to the ansible directory, run:"
+echo "  cd /opt/ansible"
+echo "=========================================="
 
