@@ -111,38 +111,30 @@
 - name: Switch to community free repository after installation
   when: proxmox_switch_to_community | default(true)
   block:
-    - name: Remove enterprise repository
+    - name: Remove no-subscription repository
       apt_repository:
         repo: "deb [arch=amd64] http://download.proxmox.com/debian/pve {{ proxmox_release | default('bookworm') }} pve-no-subscription"
         state: absent
         filename: proxmox-ve
 
-    - name: Add community free repository
-      apt_repository:
-        repo: "deb [arch=amd64] http://download.proxmox.com/debian/ceph-quincy {{ proxmox_release | default('bookworm') }} no-subscription"
-        state: present
-        filename: proxmox-community-ceph
-        update_cache: yes
-      ignore_errors: yes
-
-    - name: Add Proxmox VE community repository
+    - name: Add Proxmox VE community repository (free)
       apt_repository:
         repo: "deb [arch=amd64] http://download.proxmox.com/debian/pve {{ proxmox_release | default('bookworm') }} pve"
         state: present
-        filename: proxmox-community-pve
+        filename: proxmox-ve
         update_cache: yes
 
-    - name: Remove subscription warning (optional)
-      lineinfile:
+    - name: Remove enterprise repository file if it exists
+      file:
         path: /etc/apt/sources.list.d/pve-enterprise.list
         state: absent
       ignore_errors: yes
 
-    - name: Create no-subscription file to disable enterprise repo
-      copy:
-        content: "# Community repository - no subscription required\n"
-        dest: /etc/apt/sources.list.d/pve-no-subscription.list
-        mode: '0644'
+    - name: Comment out enterprise repository in sources.list if present
+      replace:
+        path: /etc/apt/sources.list
+        regexp: '^deb.*pve-enterprise'
+        replace: '# \0'
       ignore_errors: yes
 
 - name: Install Proxmox VE
