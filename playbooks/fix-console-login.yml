@@ -1,0 +1,142 @@
+---
+- name: Fix Console Login Issues
+  hosts: localhost
+  become: yes
+  gather_facts: no
+  
+  tasks:
+    - name: Check current getty services
+      block:
+        - name: List getty services
+          command: systemctl list-units --type=service | grep getty || echo "no_getty"
+          register: getty_services
+          changed_when: false
+          failed_when: false
+
+        - name: Check getty@tty1 status
+          systemd:
+            name: getty@tty1
+          register: getty_tty1
+          failed_when: false
+
+        - name: Display current status
+          debug:
+            msg: |
+              ============================================================================
+              Current Console Login Status
+              ============================================================================
+              
+              Getty services found:
+              {{ getty_services.stdout | default('None') }}
+              
+              getty@tty1 status: {{ getty_tty1.status.ActiveState | default('unknown') }}
+              getty@tty1 enabled: {{ getty_tty1.status.UnitFileState | default('unknown') }}
+              ============================================================================
+
+    - name: Enable and start console login services
+      block:
+        - name: Enable getty@tty1 service
+          systemd:
+            name: getty@tty1
+            enabled: yes
+            state: started
+            daemon_reload: yes
+
+        - name: Enable getty@tty2 service
+          systemd:
+            name: getty@tty2
+            enabled: yes
+            state: started
+            daemon_reload: yes
+
+        - name: Enable getty@tty3 service
+          systemd:
+            name: getty@tty3
+            enabled: yes
+            state: started
+            daemon_reload: yes
+
+        - name: Enable getty@tty4 service
+          systemd:
+            name: getty@tty4
+            enabled: yes
+            state: started
+            daemon_reload: yes
+
+        - name: Enable getty@tty5 service
+          systemd:
+            name: getty@tty5
+            enabled: yes
+            state: started
+            daemon_reload: yes
+
+        - name: Enable getty@tty6 service
+          systemd:
+            name: getty@tty6
+            enabled: yes
+            state: started
+            daemon_reload: yes
+
+    - name: Verify console login services
+      block:
+        - name: Check getty services after fix
+          command: systemctl list-units --type=service --state=active | grep getty || echo "no_getty"
+          register: getty_after
+          changed_when: false
+          failed_when: false
+
+        - name: Verify getty@tty1 is running
+          systemd:
+            name: getty@tty1
+          register: verify_getty_tty1
+          failed_when: false
+
+        - name: Display verification
+          debug:
+            msg: |
+              ============================================================================
+              Console Login Fix Complete
+              ============================================================================
+              
+              Active getty services:
+              {{ getty_after.stdout | default('None') }}
+              
+              getty@tty1: {{ '✅ Running' if verify_getty_tty1.status.ActiveState == 'active' else '❌ Not running' }}
+              
+              Next steps:
+              1. Try pressing Enter on the console
+              2. You should see a login prompt
+              3. If not, try switching to another console (Ctrl+Alt+F2, F3, etc.)
+              4. Or reboot and check again
+              ============================================================================
+
+    - name: Additional troubleshooting
+      block:
+        - name: Check if console is set up correctly
+          command: systemctl status console-setup.service || echo "not_found"
+          register: console_setup
+          changed_when: false
+          failed_when: false
+
+        - name: Check systemd-logind service
+          systemd:
+            name: systemd-logind
+          register: logind_service
+          failed_when: false
+
+        - name: Display additional info
+          debug:
+            msg: |
+              ============================================================================
+              Additional System Status
+              ============================================================================
+              
+              Console setup: {{ console_setup.stdout | default('Unknown') }}
+              systemd-logind: {{ '✅ Running' if logind_service.status.ActiveState == 'active' else '❌ Not running' }}
+              
+              If login still doesn't work:
+              - Check if keyboard is working (try typing)
+              - Try switching virtual terminals (Ctrl+Alt+F1 through F6)
+              - Check boot logs: journalctl -b | grep -i getty
+              ============================================================================
+
