@@ -22,6 +22,9 @@ proxmox_install_packages: true
 # Configure Proxmox after installation
 proxmox_configure: true
 
+# Switch to community free repository after installation
+proxmox_switch_to_community: true
+
 # Hostname for the Proxmox server
 # proxmox_hostname: pve1.example.com
 
