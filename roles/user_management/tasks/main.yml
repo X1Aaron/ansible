@@ -46,6 +46,43 @@
         - item.ssh_public_key | length > 0
       ignore_errors: false
 
+- name: Configure sudo access for users
+  block:
+    - name: Ensure /etc/sudoers.d exists
+      file:
+        path: /etc/sudoers.d
+        state: directory
+        mode: '0750'
+        owner: root
+        group: root
+
+    - name: Configure sudo access (passwordless or password-required)
+      lineinfile:
+        path: "/etc/sudoers.d/{{ item.name }}"
+        line: "{{ item.name }} ALL=(ALL:ALL) {{ 'NOPASSWD:' if (item.sudo_passwordless | default(false)) else '' }}ALL"
+        create: yes
+        mode: '0440'
+        owner: root
+        group: root
+        validate: 'visudo -cf %s'
+      loop: "{{ users | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when:
+        - item.groups is defined
+        - 'sudo' in item.groups
+      ignore_errors: false
+
+    - name: Remove sudoers files for users no longer in sudo group
+      file:
+        path: "/etc/sudoers.d/{{ item }}"
+        state: absent
+      loop: "{{ existing_user_names }}"
+      when:
+        - item not in (users | default([]) | map(attribute='name') | list)
+        - item != 'root'
+      ignore_errors: yes
+
 - name: Remove users not in variables file
   when: remove_orphaned_users | default(false)
   block:

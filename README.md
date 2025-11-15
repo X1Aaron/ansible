@@ -143,6 +143,29 @@ remove_home_on_delete: false  # Remove home directory when deleting users
 - `ssh_public_key`: Your SSH public key (recommended)
 - `password`: Password hash (optional - see below)
 - `password_lock`: Lock password (default: `false`)
+- `sudo_passwordless`: Enable passwordless sudo (default: `false`, recommended: `true` when using SSH keys)
+
+#### Sudo Configuration
+
+**Passwordless Sudo:** When a user is in the `sudo` group, you can enable passwordless sudo by setting `sudo_passwordless: true`. This is **secure** when combined with:
+- SSH key-only authentication (no password login)
+- Proper SSH key management
+- Account password locked (default behavior)
+
+**Security Considerations:**
+- ✅ **Secure:** Passwordless sudo + SSH keys + locked password = Industry standard for servers
+- ✅ **Recommended:** Most cloud providers and DevOps teams use this approach
+- ⚠️ **Less Secure:** Passwordless sudo + password login = Not recommended
+- ✅ **Best Practice:** Use SSH keys for authentication, passwordless sudo for convenience
+
+**Example:**
+```yaml
+users:
+  - name: admin
+    groups: ['sudo']
+    ssh_public_key: "ssh-rsa AAAAB3..."
+    sudo_passwordless: true  # No password prompt for sudo
+```
 
 #### Passwords
 
@@ -150,7 +173,7 @@ remove_home_on_delete: false  # Remove home directory when deleting users
 
 **SSH Keys vs Passwords:**
 - SSH keys: No password needed for SSH access (recommended)
-- Passwords: Optional, useful for console login or sudo
+- Passwords: Optional, useful for console login or sudo (if not using passwordless sudo)
 - **No password = Account locked** (password authentication disabled)
 
 **Generate Password Hash:**

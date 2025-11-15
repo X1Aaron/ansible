@@ -23,6 +23,8 @@ users:
     # Password hash (optional - generate with: python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))")
     # password: "$6$rounds=656000$salt$hashed_password_here"
     password_lock: false
+    # Sudo configuration (only applies if user is in 'sudo' group)
+    sudo_passwordless: true  # Set to true for passwordless sudo (recommended with SSH keys)
 
 # Options
 remove_orphaned_users: false  # Set to true to delete users not in the 'users' list above
