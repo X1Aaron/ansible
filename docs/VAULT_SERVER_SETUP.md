@@ -50,7 +50,7 @@ If you prefer to create it directly on the server:
 # On the server
 cd ansible
 nano .vault_pass
-# Paste your vault password: %OLPzlr!bfSoxZZ&fGdU&w0j6R&8Vf^T
+# Paste your vault password (see VAULT_PASSWORD.txt for the current password)
 # Save and exit (Ctrl+X, Y, Enter)
 chmod 600 .vault_pass
 ```
