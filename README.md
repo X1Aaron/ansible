@@ -28,10 +28,11 @@ This repository contains Ansible automation playbooks for server management task
 - `vars/secrets.local.yml.example` - Template with commented examples
 
 **How to Configure:**
-1. **Copy the example file (first time only):**
+1. **Manually copy the example file to create your config:**
    ```bash
    cp vars/users.local.yml.example vars/users.local.yml
    ```
+   ⚠️ **Important:** You must manually copy the file - it won't be created automatically.
 
 2. **Edit your `.local.yml` file:**
    ```bash
@@ -115,11 +116,12 @@ Automate user account creation, modification, and deletion on local servers.
 
 #### Quick Start
 
-1. **Copy the example file (first time only):**
+1. **Manually copy the example file to create your config:**
    ```bash
    cp vars/users.local.yml.example vars/users.local.yml
    nano vars/users.local.yml
    ```
+   ⚠️ **Important:** You must manually copy the file - it won't be created automatically.
 
 2. **Uncomment and modify the examples:**
    ```yaml
@@ -281,11 +283,12 @@ Automate server security hardening using industry best practices.
 
 #### Quick Start
 
-1. **Copy the example file (first time only):**
+1. **Manually copy the example file to create your config:**
    ```bash
    cp vars/hardening.local.yml.example vars/hardening.local.yml
    nano vars/hardening.local.yml
    ```
+   ⚠️ **Important:** You must manually copy the file - it won't be created automatically.
 
 2. **Uncomment and modify the examples** - especially SSH and firewall configurations
    - ⚠️ **IMPORTANT:** Add your IP to `hardening_ssh_allowed_sources` before running firewall hardening!
@@ -520,11 +523,12 @@ Automate Proxmox VE installation on Debian-based systems.
 
 #### Quick Start
 
-1. **Copy the example file (optional, first time only):**
+1. **Manually copy the example file to create your config (optional):**
    ```bash
    cp vars/proxmox.local.yml.example vars/proxmox.local.yml
    nano vars/proxmox.local.yml
    ```
+   ⚠️ **Important:** You must manually copy the file - it won't be created automatically.
    - This file is optional - defaults will be used if not configured
    - Uncomment and modify settings if needed (hostname, network, etc.)
 
@@ -643,7 +647,7 @@ This file:
 
 **Setup:**
 ```bash
-# Copy the example file (first time only)
+# Manually copy the example file to create your config
 cp vars/secrets.local.yml.example vars/secrets.local.yml
 
 # Edit the secrets file
@@ -652,6 +656,7 @@ nano vars/secrets.local.yml
 # Restrict permissions (important for security!)
 chmod 600 vars/secrets.local.yml
 ```
+⚠️ **Important:** You must manually copy the file - it won't be created automatically.
 
 **Uncomment and modify the examples** to add your secrets.
 
