@@ -1,0 +1,32 @@
+---
+# Local User Configuration Override
+# 
+# This file is NOT tracked in git and will NOT be overwritten when syncing.
+# Copy this file to users.local.yml and edit it with your server-specific users.
+#
+# Usage:
+#   cp vars/users.local.yml.example vars/users.local.yml
+#   nano vars/users.local.yml
+#
+# This file will override/merge with vars/users.yml
+# You can define users here and they will be used instead of the base file.
+
+# Users to create (server-specific)
+users_to_create:
+  # - name: server_user
+  #   groups: ['sudo']
+  #   shell: /bin/bash
+  #   comment: "Server-specific user"
+  #   create_home: true
+  #   generate_ssh_key: true
+
+# Users to modify
+users_to_modify:
+  # - name: existing_user
+  #   groups: ['sudo', 'docker']
+  #   append: true
+
+# Users to delete
+users_to_delete:
+  # - old_user1
+

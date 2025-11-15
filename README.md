@@ -88,7 +88,14 @@ brew install ansible
 
 ### 1. Create Users
 
-Edit `vars/users.yml` and define users under `users_to_create`:
+**On your server**, create and edit the local override file (this won't be overwritten on sync):
+
+```bash
+cp vars/users.local.yml.example vars/users.local.yml
+nano vars/users.local.yml
+```
+
+Then define users under `users_to_create`:
 
 ```yaml
 users_to_create:
@@ -109,7 +116,7 @@ ansible-playbook playbooks/user-management.yml -e "user_action=create"
 
 ### 2. Modify Users
 
-Edit `vars/users.yml` and define modifications under `users_to_modify`:
+Edit `vars/users.local.yml` and define modifications under `users_to_modify`:
 
 ```yaml
 users_to_modify:
@@ -126,7 +133,7 @@ ansible-playbook playbooks/user-management.yml -e "user_action=modify"
 
 ### 3. Delete Users
 
-Edit `vars/users.yml` and list users under `users_to_delete`:
+Edit `vars/users.local.yml` and list users under `users_to_delete`:
 
 ```yaml
 users_to_delete:

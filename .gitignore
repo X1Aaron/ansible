@@ -5,6 +5,7 @@
 *.vault
 vault/*.yml
 !vault/.gitkeep
+vars/users.local.yml
 VAULT_PASSWORD.txt
 generate-vault-password.ps1
 generate-vault-password-safe.ps1

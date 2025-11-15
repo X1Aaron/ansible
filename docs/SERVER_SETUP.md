@@ -16,7 +16,21 @@ git clone git@github.com:X1Aaron/ansible.git
 cd ansible
 ```
 
-### 2. Verify Installation
+### 2. Set Up Local User Configuration
+
+**IMPORTANT:** To prevent your user configurations from being overwritten when syncing, use the local override file:
+
+```bash
+# Create local override file (not tracked in git)
+cp vars/users.local.yml.example vars/users.local.yml
+
+# Edit with your server-specific users
+nano vars/users.local.yml
+```
+
+This file (`vars/users.local.yml`) is in `.gitignore` and will **never** be overwritten when you sync from GitHub. Edit this file instead of `vars/users.yml`.
+
+### 3. Verify Installation
 
 ```bash
 # Check Ansible is installed

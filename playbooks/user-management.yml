@@ -4,6 +4,9 @@
   become: yes
   vars_files:
     - ../vars/users.yml
+    # Local overrides (not tracked in git - safe to edit on server)
+    # This file will override values from users.yml if it exists
+    - ../vars/users.local.yml
     # Vault file will be automatically decrypted if encrypted
     # Create and encrypt it first: ansible-vault encrypt vault/passwords.yml
     - ../vault/passwords.yml
