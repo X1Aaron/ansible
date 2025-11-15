@@ -101,41 +101,12 @@
       when: ansible_facts.get('ansible_apt_key_installed', false) == false
       ignore_errors: yes
 
-    - name: Add Proxmox VE repository to sources.list (no-subscription)
-      apt_repository:
-        repo: "deb [arch=amd64] http://download.proxmox.com/debian/pve {{ proxmox_release | default('bookworm') }} pve-no-subscription"
-        state: present
-        filename: proxmox-ve
-        update_cache: yes
-
-- name: Switch to community free repository after installation
-  when: proxmox_switch_to_community | default(true)
-  block:
-    - name: Remove no-subscription repository
-      apt_repository:
-        repo: "deb [arch=amd64] http://download.proxmox.com/debian/pve {{ proxmox_release | default('bookworm') }} pve-no-subscription"
-        state: absent
-        filename: proxmox-ve
-
     - name: Add Proxmox VE community repository (free)
       apt_repository:
         repo: "deb [arch=amd64] http://download.proxmox.com/debian/pve {{ proxmox_release | default('bookworm') }} pve"
         state: present
         filename: proxmox-ve
         update_cache: yes
-
-    - name: Remove enterprise repository file if it exists
-      file:
-        path: /etc/apt/sources.list.d/pve-enterprise.list
-        state: absent
-      ignore_errors: yes
-
-    - name: Comment out enterprise repository in sources.list if present
-      replace:
-        path: /etc/apt/sources.list
-        regexp: '^deb.*pve-enterprise'
-        replace: '# \0'
-      ignore_errors: yes
 
 - name: Install Proxmox VE
   when: proxmox_install_packages | default(true)
