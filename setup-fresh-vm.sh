@@ -17,15 +17,23 @@ else
     echo "Ansible already installed"
 fi
 
-# Create directory and clone repository
-echo "Cloning repository to /opt/ansible..."
-sudo rm -rf /opt/ansible
-sudo git clone https://github.com/X1Aaron/ansible.git /opt/ansible
-sudo chown -R $USER:$USER /opt/ansible
+# Create directory and clone or sync repository
+if [ -d "/opt/ansible/.git" ]; then
+    echo "Repository already exists, syncing..."
+    cd /opt/ansible
+    git fetch origin
+    git pull origin main
+    sudo chown -R $USER:$USER /opt/ansible
+else
+    echo "Cloning repository to /opt/ansible..."
+    sudo rm -rf /opt/ansible
+    sudo git clone https://github.com/X1Aaron/ansible.git /opt/ansible
+    sudo chown -R $USER:$USER /opt/ansible
+fi
 
 # Make all .sh files in root executable
 echo "Making all .sh files executable..."
-chmod +x /opt/ansible/*.sh
+chmod +x /opt/ansible/*.sh 2>/dev/null || true
 
 # Create local config files from examples
 cd /opt/ansible
