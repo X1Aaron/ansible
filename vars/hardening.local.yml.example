@@ -37,11 +37,11 @@ hardening_ssh_permit_root_login: "no"    # [RECOMMENDED] Disable root login via 
 hardening_ssh_password_auth: "no"        # [RECOMMENDED] Disable password authentication (use keys only)
 hardening_ssh_pubkey_auth: "yes"         # [RECOMMENDED] Enable public key authentication
 hardening_ssh_x11_forwarding: "no"       # [RECOMMENDED] Disable X11 forwarding
-hardening_ssh_max_auth_tries: 3          # [OPTIONAL] Maximum authentication attempts
-hardening_ssh_client_alive_interval: 300 # [OPTIONAL] Client alive interval (seconds)
-hardening_ssh_client_alive_count_max: 2  # [OPTIONAL] Client alive count max
+# hardening_ssh_max_auth_tries: 3          # [OPTIONAL] Maximum authentication attempts
+# hardening_ssh_client_alive_interval: 300 # [OPTIONAL] Client alive interval (seconds)
+# hardening_ssh_client_alive_count_max: 2  # [OPTIONAL] Client alive count max
 # hardening_ssh_port: 22                   # [OPTIONAL] SSH port (change for security, e.g., 2222) - only uncomment if changing port
-hardening_ssh_config_backup: true        # [OPTIONAL] Backup SSH config before changes
+# hardening_ssh_config_backup: true        # [OPTIONAL] Backup SSH config before changes
 
 # Trusted Source Whitelist (optional - leave undefined or empty to allow SSH from anywhere)
 # Whitelisted IPs are trusted sources and allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
@@ -60,29 +60,29 @@ hardening_ssh_config_backup: true        # [OPTIONAL] Backup SSH config before c
 # If not specified or empty, only SSH will be allowed from anywhere (default UFW behavior)
 
 # Firewall Configuration
-hardening_firewall_allowed_services:     # [OPTIONAL] Services to allow through firewall
-  - OpenSSH
-  # - "{{ hardening_ssh_port | default(22) }}/tcp"  # If you changed SSH port
+# hardening_firewall_allowed_services:     # [OPTIONAL] Services to allow through firewall
+#   - OpenSSH
+#   # - "{{ hardening_ssh_port | default(22) }}/tcp"  # If you changed SSH port
 
 # Fail2ban Configuration
-hardening_fail2ban_bantime: 3600         # [OPTIONAL] Ban time in seconds (1 hour)
-hardening_fail2ban_findtime: 600         # [OPTIONAL] Find time window in seconds (10 minutes)
-hardening_fail2ban_maxretry: 5           # [OPTIONAL] Maximum retries before ban
-hardening_fail2ban_email: "root@localhost"  # [OPTIONAL] Email for notifications
+# hardening_fail2ban_bantime: 3600         # [OPTIONAL] Ban time in seconds (1 hour)
+# hardening_fail2ban_findtime: 600         # [OPTIONAL] Find time window in seconds (10 minutes)
+# hardening_fail2ban_maxretry: 5           # [OPTIONAL] Maximum retries before ban
+# hardening_fail2ban_email: "root@localhost"  # [OPTIONAL] Email for notifications
 
 # Services to disable
-hardening_disabled_services:             # [OPTIONAL] Services to disable
-  - telnet
-  - rsh
-  - rlogin
-  - rexec
-  - nis
-  # Add more services you want to disable
+# hardening_disabled_services:             # [OPTIONAL] Services to disable
+#   - telnet
+#   - rsh
+#   - rlogin
+#   - rexec
+#   - nis
+#   # Add more services you want to disable
 
 # File permissions (path: mode)
-hardening_file_permissions:              # [OPTIONAL] File permissions (path: mode)
-  - { path: '/etc/passwd', mode: '0644' }
-  - { path: '/etc/shadow', mode: '0640' }
-  - { path: '/etc/group', mode: '0644' }
-  # Add more files as needed
+# hardening_file_permissions:              # [OPTIONAL] File permissions (path: mode)
+#   - { path: '/etc/passwd', mode: '0644' }
+#   - { path: '/etc/shadow', mode: '0640' }
+#   - { path: '/etc/group', mode: '0644' }
+#   # Add more files as needed
 
