@@ -1,3 +1,0 @@
-# This file ensures the vault directory is tracked by git
-# Actual vault files should be encrypted and committed
-
