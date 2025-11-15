@@ -18,11 +18,7 @@ This Ansible project provides automation for managing users on a local server. A
 ├── vars/
 │   └── users.yml           # User definitions
 ├── docs/
-│   ├── SERVER_SETUP.md     # Server setup and sync guide
-│   └── VAULT_GUIDE.md      # Ansible Vault usage guide
-├── vault/
-│   ├── passwords.yml        # Encrypted user passwords (vault)
-│   └── .gitkeep
+│   └── SERVER_SETUP.md     # Server setup and sync guide
 ├── scripts/
 │   ├── generate-password-hash.sh  # Generate password hashes
 │   └── vault-helper.sh     # Vault management helper
@@ -48,16 +44,15 @@ git pull origin main
 
 For detailed instructions on automated syncing, cron jobs, and best practices, see [docs/SERVER_SETUP.md](docs/SERVER_SETUP.md).
 
-## Vault Setup on Server
+## Quick Start
 
-The vault password file (`.vault_pass`) has been created locally but needs to be transferred to your server securely.
+**On your server:**
+1. Clone the repository: `git clone https://github.com/X1Aaron/ansible.git && cd ansible`
+2. Create local config: `cp vars/users.local.yml.example vars/users.local.yml`
+3. Edit users: `nano vars/users.local.yml`
+4. Run playbook: `ansible-playbook playbooks/user-management.yml -e "user_action=create"`
 
-**Quick Setup:**
-1. Transfer `.vault_pass` to your server (see `VAULT_PASSWORD.txt` for the password)
-2. On your server, run: `./setup-vault.sh`
-3. Done! Playbooks will automatically use the vault.
-
-For detailed server setup instructions, see [docs/VAULT_SERVER_SETUP.md](docs/VAULT_SERVER_SETUP.md).
+See [SIMPLE_GUIDE.md](SIMPLE_GUIDE.md) for a simple step-by-step guide.
 
 ## Prerequisites
 
@@ -105,6 +100,8 @@ users_to_create:
     comment: "John Doe - Developer"
     create_home: true
     ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-public-key-here"
+    # Optional: password hash (generate with: python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))")
+    # password: "$6$rounds=656000$salt$hashed_password"
 ```
 
 Run the playbook:
@@ -167,7 +164,7 @@ ansible-playbook playbooks/user-management.yml -e "user_action=list"
 - `home`: Home directory path
 - `create_home`: Create home directory (default: true)
 - `comment`: User description/comment
-- `password`: Encrypted password (use ansible-vault for security)
+- `password`: Password hash (generate with Python crypt - see Password Management section)
 - `password_lock`: Lock the password (default: false)
 - `system`: Create as system user (default: false)
 - `uid`: Specific UID for the user
@@ -177,64 +174,26 @@ ansible-playbook playbooks/user-management.yml -e "user_action=list"
 - `ssh_key_type`: SSH key type (default: rsa)
 - `ssh_key_bits`: SSH key bits (default: 2048)
 
-## Security Best Practices
+## Password Management
 
-### Password Management with Ansible Vault
+**Important:** Linux requires passwords in hash format, not plain text.
 
-**Never store plaintext passwords in your playbooks!** This project is configured to use Ansible Vault for secure password management.
+### Generate Password Hash
 
-#### Quick Start with Vault
+On your server:
+```bash
+python3 -c "import crypt; print(crypt.crypt('yourpassword', crypt.mksalt(crypt.METHOD_SHA512)))"
+```
 
-1. **Create vault password file:**
-   ```bash
-   echo "your_secure_password" > .vault_pass
-   chmod 600 .vault_pass
-   ```
+Copy the output (starts with `$6$`) and use it in `vars/users.local.yml`:
 
-2. **Encrypt the vault file:**
-   ```bash
-   ansible-vault encrypt vault/passwords.yml
-   ```
+```yaml
+users_to_create:
+  - name: my_user
+    password: "$6$rounds=656000$salt$hashed_password_here"
+```
 
-3. **Add passwords to vault:**
-   ```bash
-   ansible-vault edit vault/passwords.yml
-   ```
-   Add your passwords:
-   ```yaml
-   user_passwords:
-     john_doe: "$6$rounds=656000$..."
-   ```
-
-4. **Define users in `vars/users.local.yml` (username must match vault key):**
-   ```yaml
-   users_to_create:
-     - name: john_doe  # Must match key in vault: user_passwords['john_doe']
-       groups: ['sudo']
-       # Password automatically looked up from vault!
-   ```
-
-5. **Run playbooks (password file is auto-detected):**
-   ```bash
-   ansible-playbook playbooks/user-management.yml -e "user_action=create"
-   ```
-
-#### Helper Scripts
-
-- **Generate password hash:**
-  ```bash
-  chmod +x scripts/generate-password-hash.sh
-  ./scripts/generate-password-hash.sh
-  ```
-
-- **Vault helper:**
-  ```bash
-  chmod +x scripts/vault-helper.sh
-  ./scripts/vault-helper.sh view    # View vault file
-  ./scripts/vault-helper.sh edit    # Edit vault file
-  ```
-
-For detailed vault usage, see [docs/VAULT_GUIDE.md](docs/VAULT_GUIDE.md).
+**Note:** `vars/users.local.yml` is in `.gitignore` and will NOT sync to GitHub, so your passwords stay on your server.
 
 ## Examples
 
