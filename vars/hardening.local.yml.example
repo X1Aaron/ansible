@@ -47,7 +47,7 @@ hardening_ssh_config_backup: true        # RECOMMENDED: Backup SSH config before
 # Whitelisted IPs are trusted sources and allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
 # If not specified or empty, only SSH will be allowed from anywhere (default UFW behavior)
 # SECURITY: Only whitelist IPs from trusted sources since they get access to ALL ports!
-hardening_ssh_allowed_sources: []  # RECOMMENDED: List of trusted IPs/hostnames (add your IPs here!)
+hardening_ssh_allowed_sources:  # RECOMMENDED: List of trusted IPs/hostnames (add your IPs here!)
   # - "192.168.1.0/24"        # Example: Allow all ports from entire subnet (trusted network)
   # - "10.0.0.5"              # Example: Allow all ports from specific IP (trusted host)
   # - "2001:db8::/32"         # Example: Allow all ports from IPv6 subnet
