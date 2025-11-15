@@ -1,0 +1,192 @@
+---
+- name: Validate YAML Configuration Files
+  hosts: localhost
+  become: no
+  gather_facts: no
+  
+  vars:
+    vars_dir: "{{ playbook_dir }}/../vars"
+    config_files:
+      - users.local.yml
+      - hardening.local.yml
+      - proxmox.local.yml
+      - secrets.local.yml
+    validation_errors: []
+  
+  tasks:
+    - name: Check if vars directory exists
+      stat:
+        path: "{{ vars_dir }}"
+      register: vars_dir_stat
+      failed_when: false
+    
+    - name: Display validation header
+      debug:
+        msg: |
+          ============================================================================
+          YAML Configuration File Validation
+          ============================================================================
+          
+          Validating YAML files in: {{ vars_dir }}
+          ============================================================================
+      when: vars_dir_stat.stat.exists
+    
+    - name: Fail if vars directory doesn't exist
+      fail:
+        msg: "Vars directory not found: {{ vars_dir }}"
+      when: not vars_dir_stat.stat.exists
+    
+    - name: Validate each configuration file
+      block:
+        - name: Check if file exists
+          stat:
+            path: "{{ vars_dir }}/{{ item }}"
+          register: file_check
+          failed_when: false
+        
+        - name: Read YAML file content
+          slurp:
+            src: "{{ vars_dir }}/{{ item }}"
+          register: file_content
+          when: file_check.stat.exists
+          failed_when: false
+        
+        - name: Parse and validate YAML
+          set_fact:
+            yaml_parsed: "{{ file_content.content | b64decode | from_yaml }}"
+          register: yaml_parse
+          when: file_check.stat.exists
+          ignore_errors: yes
+          failed_when: false
+        
+        - name: Record validation errors
+          set_fact:
+            validation_errors: "{{ validation_errors + [{'file': item, 'error': yaml_parse.msg | default('Unknown error')}] }}"
+          when: 
+            - file_check.stat.exists
+            - yaml_parse.rc is not defined or yaml_parse.rc != 0
+        
+        - name: Display validation result
+          debug:
+            msg: |
+              ============================================================================
+              File: {{ item }}
+              ============================================================================
+              {% if file_check.stat.exists %}
+              File exists: ✅ Yes
+              File path: {{ vars_dir }}/{{ item }}
+              {% if yaml_parse.rc is defined and yaml_parse.rc == 0 %}
+              YAML syntax: ✅ VALID
+              {% else %}
+              YAML syntax: ❌ INVALID
+              {% if yaml_parse.msg is defined %}
+              Error: {{ yaml_parse.msg }}
+              {% elif yaml_parse.failed %}
+              Error: Failed to parse YAML - check indentation and syntax
+              Line numbers and column positions are usually shown in the error message.
+              {% else %}
+              Error: Unknown parsing error
+              {% endif %}
+              {% endif %}
+              {% else %}
+              File exists: ⚠️  No (file not created yet - this is OK)
+              Note: Copy from .example file when ready to use
+              {% endif %}
+              ============================================================================
+      
+      loop: "{{ config_files }}"
+      loop_control:
+        label: "{{ item }}"
+    
+    - name: Fail if any YAML files are invalid
+      fail:
+        msg: |
+          ============================================================================
+          YAML Validation Failed!
+          ============================================================================
+          
+          One or more YAML files have syntax errors.
+          
+          Files with errors:
+          {% for error in validation_errors %}
+          - {{ error.file }}: ❌ Invalid YAML syntax
+            Error: {{ error.error }}
+          {% endfor %}
+          
+          Common YAML errors:
+          - Incorrect indentation (use consistent spaces, not tabs)
+          - Missing colons after keys
+          - Unclosed quotes
+          - Invalid list syntax
+          
+          Please fix the errors above and run this playbook again.
+          ============================================================================
+      when: validation_errors | length > 0
+    
+    - name: Validate example files (optional check)
+      block:
+        - name: Find all .example files
+          find:
+            paths: "{{ vars_dir }}"
+            patterns: "*.example"
+            file_type: file
+          register: example_files
+          failed_when: false
+        
+        - name: Validate each example YAML file
+          block:
+            - name: Read example YAML file
+              slurp:
+                src: "{{ item.path }}"
+              register: example_content
+              failed_when: false
+            
+            - name: Parse example YAML file
+              set_fact:
+                example_yaml_parsed: "{{ example_content.content | b64decode | from_yaml }}"
+              register: example_yaml_parse
+              ignore_errors: yes
+              failed_when: false
+            
+            - name: Display example file validation result
+              debug:
+                msg: |
+                  ============================================================================
+                  Example File: {{ item.path | basename }}
+                  Status: {{ '✅ VALID' if example_yaml_parse.rc is defined and example_yaml_parse.rc == 0 else '❌ INVALID' }}
+                  {% if example_yaml_parse.rc is defined and example_yaml_parse.rc != 0 %}
+                  Error: {{ example_yaml_parse.msg | default('Unknown error') }}
+                  {% endif %}
+                  ============================================================================
+          
+          loop: "{{ example_files.files | default([]) }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+          when: example_files.files | length > 0
+      
+      when: vars_dir_stat.stat.exists
+    
+    - name: Final validation summary
+      debug:
+        msg: |
+          ============================================================================
+          YAML Validation Summary
+          ============================================================================
+          
+          {% if validation_errors | length == 0 %}
+          ✅ All YAML files are valid!
+          {% else %}
+          ❌ Found {{ validation_errors | length }} file(s) with errors
+          {% endif %}
+          
+          Configuration files checked:
+          {% for file in config_files %}
+          - {{ file }}
+          {% endfor %}
+          
+          {% if example_files.files | default([]) | length > 0 %}
+          Example files checked: {{ example_files.files | length }}
+          {% endif %}
+          
+          Note: Missing .local.yml files are OK - they will be created when needed.
+          ============================================================================

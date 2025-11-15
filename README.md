@@ -165,6 +165,9 @@ ansible-playbook playbooks/diagnose-system.yml
 
 # Fix console login issues
 ansible-playbook playbooks/fix-console-login.yml
+
+# Validate YAML configuration files
+ansible-playbook playbooks/validate-yaml.yml
 ```
 
 ---
