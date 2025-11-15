@@ -274,6 +274,26 @@
         - { policy: allow, direction: outgoing }
       when: ansible_os_family == "Debian"
 
+    - name: Enable UFW firewall (CRITICAL - applies all rules)
+      ufw:
+        state: enabled
+      when: ansible_os_family == "Debian"
+      failed_when: false
+
+    - name: Verify UFW is enabled and SSH is allowed
+      command: ufw status verbose
+      register: ufw_final_status
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+
+    - name: Display UFW status for verification
+      debug:
+        msg: "{{ ufw_final_status.stdout }}"
+      when: 
+        - ansible_os_family == "Debian"
+        - ufw_final_status.stdout is defined
+
     - name: Allow additional services through UFW
       ufw:
         rule: allow
