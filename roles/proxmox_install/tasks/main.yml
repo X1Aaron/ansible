@@ -28,52 +28,159 @@
     msg: "Proxmox VE requires Debian 11, 12, or 13. Detected: {{ ansible_os_family }}"
   when: ansible_os_family != "Debian"
 
-- name: Verify hostname resolves to non-loopback IP address
+- name: Verify and fix hostname resolution to non-loopback IP address
   block:
     - name: Get hostname
       command: hostname
       register: system_hostname
       changed_when: false
 
-    - name: Check if hostname resolves to non-loopback IP address
+    - name: Check current hostname resolution
       command: hostname --ip-address
       register: hostname_ip_check
       changed_when: false
       failed_when: false
 
+    - name: Get actual non-loopback IP addresses
+      shell: |
+        ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v '^127\.' | head -1
+      register: actual_ip
+      changed_when: false
+      failed_when: false
+
+    - name: Get all non-loopback IPs (fallback method)
+      shell: |
+        hostname -I | awk '{print $1}'
+      register: actual_ip_fallback
+      changed_when: false
+      failed_when: false
+      when: actual_ip.stdout == "" or actual_ip.rc != 0
+
+    - name: Set the actual IP to use
+      set_fact:
+        detected_ip: "{{ (actual_ip.stdout | default('')) | length > 0 | ternary(actual_ip.stdout, actual_ip_fallback.stdout | default('')) }}"
+
     - name: Check if resolved IP is loopback
       set_fact:
         is_loopback: "{{ hostname_ip_check.stdout | default('') | regex_search('^(127\\.|::1|^localhost$)') is not none }}"
         has_valid_ip: "{{ hostname_ip_check.stdout | default('') | length > 0 and hostname_ip_check.rc == 0 }}"
+        needs_fix: "{{ (not (has_valid_ip | default(false) | bool)) or (is_loopback | default(false) | bool) or (hostname_ip_check.rc != 0) }}"
 
-    - name: Fail if hostname doesn't resolve to non-loopback IP
+    - name: Display hostname resolution status
+      debug:
+        msg: |
+          ============================================================================
+          Hostname Resolution Check
+          ============================================================================
+          
+          Hostname: {{ system_hostname.stdout }}
+          
+          Current Resolution: {{ hostname_ip_check.stdout | default('FAILED - does not resolve') }}
+          Detected IP Address: {{ detected_ip | default('NOT FOUND') }}
+          
+          Status: {{ '❌ INVALID (loopback or failed)' if needs_fix | default(false) | bool else '✅ VALID (non-loopback IP)' }}
+          
+          {% if needs_fix | default(false) | bool %}
+          ⚠️  The hostname resolves to a loopback address or doesn't resolve.
+          {% if detected_ip | default('') | length > 0 %}
+          🔧 Will automatically fix /etc/hosts to use: {{ detected_ip }}
+          {% else %}
+          ❌ Could not detect a non-loopback IP address. Please configure manually.
+          {% endif %}
+          {% endif %}
+          ============================================================================
+      when: needs_fix | default(false) | bool
+
+    - name: Read current /etc/hosts file
+      slurp:
+        src: /etc/hosts
+      register: hosts_file
+      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
+
+    - name: Fix /etc/hosts to use detected IP
+      blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Proxmox hostname fix"
+        block: |
+          {{ detected_ip }}  {{ system_hostname.stdout }} {{ system_hostname.stdout }}.local
+        insertbefore: "^127\\.0\\.0\\.1"
+        create: yes
+        backup: yes
+      when:
+        - needs_fix | default(false) | bool
+        - detected_ip | default('') | length > 0
+        - is_loopback | default(false) | bool
+
+    - name: Remove old loopback hostname entries from /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        regexp: "^\s*127\.0\.1\.1\s+{{ system_hostname.stdout }}(\s|$)"
+        state: absent
+        backup: yes
+      when:
+        - needs_fix | default(false) | bool
+        - detected_ip | default('') | length > 0
+        - is_loopback | default(false) | bool
+
+    - name: Verify hostname resolution after fix
+      command: hostname --ip-address
+      register: hostname_ip_check_after
+      changed_when: false
+      failed_when: false
+      when:
+        - needs_fix | default(false) | bool
+        - detected_ip | default('') | length > 0
+        - is_loopback | default(false) | bool
+
+    - name: Display fix result
+      debug:
+        msg: |
+          ============================================================================
+          Hostname Resolution Fix
+          ============================================================================
+          
+          ✅ Fixed /etc/hosts automatically!
+          
+          Before: {{ hostname_ip_check.stdout | default('FAILED') }}
+          After:  {{ hostname_ip_check_after.stdout | default('CHECKING...') }}
+          
+          The hostname '{{ system_hostname.stdout }}' now resolves to: {{ hostname_ip_check_after.stdout | default(detected_ip) }}
+          ============================================================================
+      when:
+        - needs_fix | default(false) | bool
+        - detected_ip | default('') | length > 0
+        - is_loopback | default(false) | bool
+        - hostname_ip_check_after.rc == 0
+
+    - name: Fail if hostname still doesn't resolve correctly and no IP detected
       fail:
         msg: |
           ============================================================================
-          Hostname Resolution Error
+          Hostname Resolution Error - Manual Fix Required
           ============================================================================
           
           The hostname '{{ system_hostname.stdout }}' must resolve to a non-loopback IP address.
           
           Current resolution: {{ hostname_ip_check.stdout | default('FAILED - hostname does not resolve') }}
+          Detected IP address: {{ detected_ip | default('NOT FOUND - could not detect system IP') }}
           
-          According to Proxmox documentation, the hostname must resolve to a non-loopback IP
-          (not 127.0.0.1, ::1, or localhost).
+          Could not automatically fix because no non-loopback IP address was detected.
           
-          Fix by adding an entry to /etc/hosts:
-          Example: 192.168.1.100  {{ system_hostname.stdout }} {{ system_hostname.stdout }}.local
+          Please manually fix /etc/hosts:
+          1. Find your system's IP address: ip addr show | grep "inet " | grep -v "127.0.0.1"
+          2. Edit /etc/hosts: sudo nano /etc/hosts
+          3. Add or update the line: YOUR_IP_ADDRESS  {{ system_hostname.stdout }} {{ system_hostname.stdout }}.local
+          4. Remove any line with: 127.0.1.1  {{ system_hostname.stdout }}
+          5. Verify: hostname --ip-address (should return your IP, not 127.x.x.x)
           
-          Or configure DNS to resolve the hostname to a non-loopback IP.
-          
-          Test with: hostname --ip-address
-          (should return a non-loopback IP address)
+          Example /etc/hosts entry:
+          192.168.1.100  {{ system_hostname.stdout }} {{ system_hostname.stdout }}.local
           
           See: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie
           ============================================================================
-      when: >
-        (not (has_valid_ip | default(false) | bool)) or
-        (is_loopback | default(false) | bool) or
-        (hostname_ip_check.rc != 0)
+      when:
+        - needs_fix | default(false) | bool
+        - detected_ip | default('') | length == 0
 
 - name: Map Debian version to Proxmox release
   set_fact:
