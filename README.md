@@ -63,6 +63,13 @@ Your `*.local.yml` files will never be overwritten (they're in `.gitignore`).
 
 Automate user account creation, modification, and deletion on local servers.
 
+#### How It Works
+
+**Declarative Approach:** The variables file is the source of truth.
+- Users in the file → Created or updated to match
+- Users removed from file → Deleted (if `remove_orphaned_users` is enabled)
+- No need to specify create/modify/delete actions
+
 #### Quick Start
 
 1. **Create your variables file:**
@@ -73,7 +80,7 @@ Automate user account creation, modification, and deletion on local servers.
 
 2. **Add your users:**
    ```yaml
-   users_to_create:
+   users:
      - name: my_user
        groups: ['sudo']
        shell: /bin/bash
@@ -82,29 +89,20 @@ Automate user account creation, modification, and deletion on local servers.
 
 3. **Run the playbook:**
    ```bash
-   ansible-playbook playbooks/user-management.yml -e "user_action=create"
+   ansible-playbook playbooks/user-management.yml
    ```
+
+That's it! The playbook ensures users match your variables file.
 
 #### Usage
 
-**Create Users:**
-```bash
-ansible-playbook playbooks/user-management.yml -e "user_action=create"
-```
+Just run the playbook - it automatically:
+- Creates users that don't exist
+- Updates users that exist but don't match
+- Deletes users not in the file (if enabled)
 
-**Modify Users:**
 ```bash
-ansible-playbook playbooks/user-management.yml -e "user_action=modify"
-```
-
-**Delete Users:**
-```bash
-ansible-playbook playbooks/user-management.yml -e "user_action=delete"
-```
-
-**List Users:**
-```bash
-ansible-playbook playbooks/user-management.yml -e "user_action=list"
+ansible-playbook playbooks/user-management.yml
 ```
 
 #### Configuration
@@ -112,7 +110,7 @@ ansible-playbook playbooks/user-management.yml -e "user_action=list"
 Edit `vars/users.local.yml` with your users:
 
 ```yaml
-users_to_create:
+users:
   - name: alice
     groups: ['sudo']
     shell: /bin/bash
@@ -122,13 +120,16 @@ users_to_create:
     # Optional: password hash
     # password: "$6$rounds=656000$salt$hash"
 
-users_to_modify:
-  - name: existing_user
-    groups: ['sudo', 'docker']
-    append: true
+  - name: bob
+    groups: ['docker']
+    shell: /bin/bash
+    comment: "Bob - DevOps"
+    create_home: true
+    ssh_public_key: "ssh-ed25519 AAAAC3... bob@workstation"
 
-users_to_delete:
-  - old_user
+# Options
+remove_orphaned_users: false  # Set to true to delete users not in 'users' list
+remove_home_on_delete: false  # Remove home directory when deleting users
 ```
 
 #### Options
@@ -168,7 +169,7 @@ cat ~/.ssh/id_ed25519.pub
 
 **Add to user:**
 ```yaml
-users_to_create:
+users:
   - name: my_user
     ssh_public_key: "ssh-rsa AAAAB3... your-full-key"
 ```

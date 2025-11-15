@@ -13,6 +13,4 @@
     - name: Include user management role
       include_role:
         name: user_management
-      vars:
-        action: "{{ user_action | default('create') }}"
 

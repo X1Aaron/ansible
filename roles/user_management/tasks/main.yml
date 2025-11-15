@@ -1,8 +1,16 @@
 ---
-- name: Create users
-  when: action == 'create'
+- name: Get existing users on system
+  getent:
+    database: passwd
+  register: existing_users
+
+- name: Set fact for existing user names
+  set_fact:
+    existing_user_names: "{{ existing_users.ansible_facts.getent_passwd.keys() | list }}"
+
+- name: Ensure users exist (create or update)
   block:
-    - name: Create user accounts
+    - name: Create or update user accounts
       user:
         name: "{{ item.name }}"
         state: present
@@ -19,11 +27,10 @@
         generate_ssh_key: "{{ item.generate_ssh_key | default(false) }}"
         ssh_key_bits: "{{ item.ssh_key_bits | default(2048) }}"
         ssh_key_type: "{{ item.ssh_key_type | default('rsa') }}"
-      loop: "{{ users_to_create | default([]) }}"
+      loop: "{{ users | default([]) }}"
       loop_control:
         label: "{{ item.name }}"
-      register: user_create_result
-      changed_when: user_create_result.changed
+      register: user_result
 
     - name: Add SSH authorized keys for users
       authorized_key:
@@ -31,7 +38,7 @@
         key: "{{ item.ssh_public_key }}"
         state: present
         exclusive: "{{ item.ssh_keys_exclusive | default(false) }}"
-      loop: "{{ users_to_create | default([]) }}"
+      loop: "{{ users | default([]) }}"
       loop_control:
         label: "{{ item.name }}"
       when: 
@@ -39,82 +46,31 @@
         - item.ssh_public_key | length > 0
       ignore_errors: false
 
-    - name: Display created users
-      debug:
-        msg: "User '{{ item.name }}' has been created successfully"
-      loop: "{{ users_to_create | default([]) }}"
-      when: user_create_result.changed
-
-- name: Modify users
-  when: action == 'modify'
+- name: Remove users not in variables file
+  when: remove_orphaned_users | default(false)
   block:
-    - name: Modify user accounts
-      user:
-        name: "{{ item.name }}"
-        state: present
-        groups: "{{ item.groups | default(omit) }}"
-        append: "{{ item.append | default(true) }}"
-        shell: "{{ item.shell | default(omit) }}"
-        home: "{{ item.home | default(omit) }}"
-        comment: "{{ item.comment | default(omit) }}"
-        password: "{{ item.password | default(omit) }}"
-        password_lock: "{{ item.password_lock | default(false) }}"
-        uid: "{{ item.uid | default(omit) }}"
-      loop: "{{ users_to_modify | default([]) }}"
-      loop_control:
-        label: "{{ item.name }}"
-      register: user_modify_result
-
-    - name: Add SSH authorized keys for modified users
-      authorized_key:
-        user: "{{ item.name }}"
-        key: "{{ item.ssh_public_key }}"
-        state: present
-        exclusive: "{{ item.ssh_keys_exclusive | default(false) }}"
-      loop: "{{ users_to_modify | default([]) }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when: 
-        - item.ssh_public_key is defined
-        - item.ssh_public_key | length > 0
-      ignore_errors: false
-
-    - name: Display modified users
-      debug:
-        msg: "User '{{ item.name }}' has been modified"
-      loop: "{{ users_to_modify | default([]) }}"
-      when: user_modify_result.changed
-
-- name: Delete users
-  when: action == 'delete'
-  block:
-    - name: Remove user accounts
+    - name: Get users to delete (exist on system but not in variables)
+      set_fact:
+        users_to_delete: "{{ existing_user_names | difference(users | default([]) | map(attribute='name') | list) }}"
+    
+    - name: Filter out system users (UID < 1000) from deletion
+      set_fact:
+        users_to_delete: "{{ users_to_delete | reject('in', system_users | default([])) | list }}"
+    
+    - name: Remove orphaned user accounts
       user:
         name: "{{ item }}"
         state: absent
-        remove: "{{ remove_home | default(false) }}"
+        remove: "{{ remove_home_on_delete | default(false) }}"
         force: "{{ force_remove | default(false) }}"
-      loop: "{{ users_to_delete | default([]) }}"
-      register: user_delete_result
+      loop: "{{ users_to_delete }}"
+      when: users_to_delete | length > 0
+      register: delete_result
 
     - name: Display deleted users
       debug:
-        msg: "User '{{ item }}' has been deleted"
-      loop: "{{ users_to_delete | default([]) }}"
-      when: user_delete_result.changed
-
-- name: List users
-  when: action == 'list'
-  block:
-    - name: Get all users
-      getent:
-        database: passwd
-      register: all_users
-
-    - name: Display all users
-      debug:
-        msg: "User: {{ item.key }} (UID: {{ item.value[1] }}, GID: {{ item.value[2] }}, Home: {{ item.value[4] }}, Shell: {{ item.value[5] }})"
-      loop: "{{ all_users.ansible_facts.getent_passwd | dict2items }}"
-      loop_control:
-        label: "{{ item.key }}"
-
+        msg: "Removed user '{{ item }}' (not in variables file)"
+      loop: "{{ users_to_delete }}"
+      when: 
+        - users_to_delete | length > 0
+        - delete_result.changed
