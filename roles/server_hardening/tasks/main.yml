@@ -2,9 +2,15 @@
 - name: Pre-flight safety checks
   when: hardening_ssh_harden | default(true) and (hardening_ssh_password_auth | default("no")) == "no"
   block:
+    - name: Get current username
+      shell: whoami
+      register: current_user_result
+      changed_when: false
+      failed_when: false
+
     - name: Get current user's home directory
       shell: |
-        getent passwd "{{ ansible_user_id }}" | cut -d: -f6
+        getent passwd "$(whoami)" | cut -d: -f6
       register: user_home_result
       changed_when: false
       failed_when: false
@@ -12,6 +18,7 @@
     - name: Set user home directory fact
       set_fact:
         user_home: "{{ user_home_result.stdout | default('/root') }}"
+        current_user: "{{ current_user_result.stdout | default('root') }}"
 
     - name: Check if current user has SSH key authentication
       stat:
@@ -22,7 +29,7 @@
     - name: Warn if no SSH keys found and password auth will be disabled
       debug:
         msg: |
-          ⚠️  WARNING: Password authentication will be DISABLED, but no SSH keys found for user '{{ ansible_user_id }}'!
+          ⚠️  WARNING: Password authentication will be DISABLED, but no SSH keys found for user '{{ current_user }}'!
           
           This could LOCK YOU OUT of the server!
           
@@ -48,7 +55,7 @@
           2. Add your SSH key to that user
           3. Then run this hardening playbook
       when: 
-        - ansible_user_id == "root"
+        - current_user == "root"
         - (hardening_ssh_permit_root_login | default("no")) == "no"
 
 - name: Update system packages
