@@ -1,85 +1,49 @@
 ---
-- name: Detect OS family
+# Detect OS and version
+- name: Detect OS family and version
   block:
-    - name: Detect OS family
+    - name: Get OS information
       shell: |
         if [ -f /etc/os-release ]; then
           . /etc/os-release
-          case "$ID" in
-            ubuntu|debian)
-              echo "Debian"
-              ;;
-            rhel|centos|fedora|rocky|almalinux)
-              echo "RedHat"
-              ;;
-            *)
-              echo "Unknown"
-              ;;
-          esac
-        elif [ -f /etc/redhat-release ]; then
-          echo "RedHat"
+          echo "$ID|$VERSION_ID"
         elif [ -f /etc/debian_version ]; then
-          echo "Debian"
+          echo "debian|$(cat /etc/debian_version)"
         else
-          echo "Unknown"
+          echo "unknown|unknown"
         fi
-      register: os_family_result
+      register: os_info
       changed_when: false
       failed_when: false
 
-    - name: Set OS family fact
+    - name: Set OS facts
       set_fact:
-        ansible_os_family: "{{ os_family_result.stdout }}"
+        ansible_os_family: "{{ 'Debian' if 'debian' in os_info.stdout else 'Unknown' }}"
+        debian_version: "{{ os_info.stdout.split('|')[1] }}"
 
-- name: Check if running on Debian-based system
+- name: Verify Debian-based system
   fail:
-    msg: "Proxmox VE can only be installed on Debian-based systems (Debian 11/12)"
+    msg: "Proxmox VE requires Debian 11, 12, or 13. Detected: {{ ansible_os_family }}"
   when: ansible_os_family != "Debian"
 
-- name: Detect Debian version
-  shell: |
-    if [ -f /etc/os-release ]; then
-      . /etc/os-release
-      echo "$VERSION_ID"
-    elif [ -f /etc/debian_version ]; then
-      cat /etc/debian_version
-    else
-      echo "unknown"
-    fi
-  register: debian_version_result
-  changed_when: false
-  failed_when: false
-
-- name: Set Debian version fact
-  set_fact:
-    debian_version: "{{ debian_version_result.stdout }}"
-
-- name: Map Debian version to Proxmox release name
+- name: Map Debian version to Proxmox release
   set_fact:
     proxmox_release_mapped: >-
-      {%- if debian_version in ["11", "11.0", "bullseye"] -%}
-        bullseye
-      {%- elif debian_version in ["12", "12.0", "bookworm"] -%}
-        bookworm
-      {%- elif debian_version in ["13", "13.0", "trixie"] -%}
-        trixie
-      {%- else -%}
-        {{ proxmox_release | default('trixie') }}
+      {%- if debian_version in ["11", "11.0", "bullseye"] -%}bullseye
+      {%- elif debian_version in ["12", "12.0", "bookworm"] -%}bookworm
+      {%- elif debian_version in ["13", "13.0", "trixie"] -%}trixie
+      {%- else -%}{{ proxmox_release | default('trixie') }}
       {%- endif -%}
 
-- name: Warn if not Debian 11, 12, or 13
+- name: Warn about unsupported Debian version
   debug:
-    msg: |
-      ⚠️  WARNING: Proxmox VE officially supports Debian 11 (Bullseye), Debian 12 (Bookworm), and Debian 13 (Trixie).
-      Detected version: {{ debian_version }}
-      Using Proxmox release: {{ proxmox_release_mapped }}
-      Proceeding anyway, but installation may fail.
+    msg: "WARNING: Debian {{ debian_version }} may not be fully supported. Using Proxmox release: {{ proxmox_release_mapped }}"
   when: debian_version not in ["11", "12", "13", "bullseye", "bookworm", "trixie", "11.0", "12.0", "13.0"]
 
-- name: Clean up ALL existing Proxmox repositories FIRST (before any apt operations)
-  # This must run BEFORE any apt update/install operations to prevent errors
+# Clean up old Proxmox repositories
+- name: Clean up old Proxmox repositories
   block:
-    - name: Remove ALL existing Proxmox repository files
+    - name: Remove old Proxmox repository files
       file:
         path: "{{ item }}"
         state: absent
@@ -89,60 +53,37 @@
         - /etc/apt/sources.list.d/pve-install-repo.sources
         - /etc/apt/sources.list.d/proxmox-ve.list
         - /etc/apt/sources.list.d/pve-no-subscription.list
-      ignore_errors: yes
 
-    - name: Remove any remaining Proxmox repository files with wrong configuration
+    - name: Remove repository files with wrong configuration
       shell: |
-        REMOVED=""
-        # Check all possible repository file locations - ONLY Proxmox-specific files
-        # We only target files with 'pve' or 'proxmox' in the name to avoid touching Debian repos
         for file in /etc/apt/sources.list.d/pve*.sources /etc/apt/sources.list.d/pve*.list /etc/apt/sources.list.d/proxmox*.list /etc/apt/sources.list.d/proxmox*.sources; do
-          if [ -f "$file" ]; then
-            # Remove if it has wrong component 'pve' (enterprise) instead of 'pve-no-subscription'
-            if grep -qE "Components:\s*pve[^-]" "$file" 2>/dev/null || grep -qE "pve\s+pve[^-]" "$file" 2>/dev/null; then
-              rm -f "$file"
-              REMOVED="$REMOVED $file"
-            # Remove if it uses enterprise URL for packages (not just GPG key)
-            elif grep -qE "https?://enterprise\.proxmox\.com/debian/pve" "$file" 2>/dev/null; then
-              rm -f "$file"
-              REMOVED="$REMOVED $file"
-            fi
+          [ -f "$file" ] || continue
+          if grep -qE "Components:\s*pve[^-]" "$file" 2>/dev/null || \
+             grep -qE "pve\s+pve[^-]" "$file" 2>/dev/null || \
+             grep -qE "https?://enterprise\.proxmox\.com/debian/pve" "$file" 2>/dev/null; then
+            rm -f "$file" && echo "removed:$file"
           fi
         done
-        # Also check main sources.list file - but ONLY for Proxmox-specific entries
-        # We use very specific patterns to ONLY match Proxmox repos, never Debian repos
-        if [ -f /etc/apt/sources.list ]; then
-          # Only comment out lines that contain BOTH "proxmox" AND "pve" to avoid false positives
-          # This ensures we never touch Debian repository lines
-          if grep -qE "enterprise\.proxmox\.com/debian/pve" /etc/apt/sources.list 2>/dev/null || grep -qE "download\.proxmox\.com/debian/pve.*pve[^-]" /etc/apt/sources.list 2>/dev/null; then
-            # Comment out ONLY Proxmox-specific lines - very targeted sed patterns
-            sed -i '/enterprise\.proxmox\.com\/debian\/pve/s/^/# /' /etc/apt/sources.list
-            sed -i '/download\.proxmox\.com\/debian\/pve.*pve[^-]/s/^/# /' /etc/apt/sources.list
-            REMOVED="$REMOVED /etc/apt/sources.list (commented Proxmox entries only)"
-          fi
+        if [ -f /etc/apt/sources.list ] && grep -qE "(enterprise|download)\.proxmox\.com/debian/pve" /etc/apt/sources.list 2>/dev/null; then
+          sed -i '/\(enterprise\|download\)\.proxmox\.com\/debian\/pve/s/^/# /' /etc/apt/sources.list && echo "commented:/etc/apt/sources.list"
         fi
-        if [ -n "$REMOVED" ]; then
-          echo "removed:$REMOVED"
-        fi
-      register: removed_old_repo
-      changed_when: "'removed:' in removed_old_repo.stdout"
+      register: cleanup_result
+      changed_when: "'removed:' in cleanup_result.stdout or 'commented:' in cleanup_result.stdout"
       failed_when: false
 
+# Update system (if enabled)
 - name: Update system packages
   when: proxmox_update_system | default(true)
   block:
-    - name: Update apt cache
+    - name: Update apt cache and upgrade packages
       apt:
         update_cache: yes
-        cache_valid_time: 3600
-
-    - name: Upgrade all packages
-      apt:
         upgrade: dist
         autoremove: yes
-        autoclean: yes
+        cache_valid_time: 3600
 
-- name: Install required packages
+# Install prerequisites
+- name: Install prerequisites
   apt:
     name:
       - curl
@@ -151,53 +92,30 @@
       - ca-certificates
     state: present
     update_cache: yes
+    cache_valid_time: 3600
 
-- name: Add Proxmox VE repository
+# Setup Proxmox repository
+- name: Setup Proxmox repository
   block:
-    # IMPORTANT: We ALWAYS use the community (no-subscription) repository, NOT the enterprise repository
-    # - Repository URL: http://download.proxmox.com/debian/pve (community)
-    # - Component: pve-no-subscription (NOT pve which is enterprise)
-    # - The GPG key is downloaded from enterprise.proxmox.com, but that's just where the keyring file is hosted
-    #   The actual package repository is the community one above
-    
     - name: Ensure keyrings directory exists
       file:
         path: /usr/share/keyrings
         state: directory
         mode: '0755'
 
-    - name: Remove existing GPG keys if present
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/apt/trusted.gpg.d/proxmox-release.gpg
-        - /usr/share/keyrings/proxmox-archive-keyring.gpg
-      ignore_errors: yes
-
-    - name: Download Proxmox archive keyring (official method)
-      # Note: The GPG keyring file is hosted on enterprise.proxmox.com, but this is just the key file
-      # The actual package repository we use is the community one (http://download.proxmox.com/debian/pve)
+    - name: Download Proxmox GPG key
       get_url:
         url: "https://enterprise.proxmox.com/debian/proxmox-archive-keyring-{{ proxmox_release_mapped }}.gpg"
         dest: /usr/share/keyrings/proxmox-archive-keyring.gpg
         mode: '0644'
-      ignore_errors: yes
+      register: gpg_download
 
-    - name: Verify GPG key was downloaded
-      stat:
-        path: /usr/share/keyrings/proxmox-archive-keyring.gpg
-      register: gpg_key_check
-      ignore_errors: yes
+    - name: Fail if GPG key download failed
+      fail:
+        msg: "Failed to download Proxmox GPG key. Check network connectivity."
+      when: gpg_download.failed
 
-    # Note: Repository cleanup already happened earlier in the playbook
-    # This block just adds the correct repository
-
-    - name: Add Proxmox VE repository using deb822 format (official method)
-      # Using community (no-subscription) repository - NOT enterprise
-      # Following official documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie
-      # Repository: http://download.proxmox.com/debian/pve
-      # Component: pve-no-subscription (community/free, no subscription required)
+    - name: Add Proxmox repository (deb822 format)
       copy:
         content: |
           Types: deb
@@ -207,124 +125,55 @@
           Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
         dest: /etc/apt/sources.list.d/pve-install-repo.sources
         mode: '0644'
-      when: gpg_key_check.stat.exists
 
-    - name: Update apt cache after repository cleanup and configuration
+    - name: Update apt cache with Proxmox repository
       apt:
         update_cache: yes
         cache_valid_time: 0
-      when: gpg_key_check.stat.exists
+      register: apt_update
 
-    - name: Add Proxmox VE repository (fallback to old format)
-      # Using community (no-subscription) repository - NOT enterprise
-      apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pve {{ proxmox_release_mapped }} pve-no-subscription"
-        state: present
-        filename: proxmox-ve
-        update_cache: yes
-      when: not gpg_key_check.stat.exists
-      ignore_errors: yes
-
-    - name: Verify repository was added correctly
-      shell: |
-        if [ -f /etc/apt/sources.list.d/pve-install-repo.sources ]; then
-          cat /etc/apt/sources.list.d/pve-install-repo.sources
-        elif [ -f /etc/apt/sources.list.d/proxmox-ve.list ]; then
-          cat /etc/apt/sources.list.d/proxmox-ve.list
-        else
-          echo "No repository file found"
-        fi
-      register: repo_verify
+    - name: Verify Proxmox packages are available
+      command: apt-cache madison proxmox-ve
+      register: proxmox_available
       changed_when: false
       failed_when: false
 
-    - name: Display repository configuration
-      debug:
-        msg: "Repository configured: {{ repo_verify.stdout }}"
-      when: repo_verify.rc == 0 and "No repository file found" not in repo_verify.stdout
+    - name: Fail if Proxmox packages not available
+      fail:
+        msg: |
+          Proxmox packages not found in repository!
+          Debian: {{ debian_version }} -> Proxmox: {{ proxmox_release_mapped }}
+          Run: apt update && apt-cache search proxmox-ve
+      when: proxmox_available.rc != 0 or proxmox_available.stdout_lines | length == 0
 
+# Install Proxmox VE
 - name: Install Proxmox VE
   when: proxmox_install_packages | default(true)
   block:
-    # Note: apt cache is updated in the repository block after cleanup
-    # This ensures we have the correct repository before trying to install packages
-
-    - name: Check if proxmox-ve package is available
-      command: apt-cache search proxmox-ve
-      register: proxmox_package_check
+    - name: Check if Proxmox is already installed
+      command: pveversion
+      register: proxmox_installed
       changed_when: false
       failed_when: false
 
-    - name: Display available Proxmox packages
-      debug:
-        msg: "Available Proxmox packages: {{ proxmox_package_check.stdout_lines }}"
-      when: proxmox_package_check.stdout_lines | length > 0
-
-    - name: Check repository sources
-      shell: |
-        if [ -f /etc/apt/sources.list.d/pve-install-repo.sources ]; then
-          cat /etc/apt/sources.list.d/pve-install-repo.sources
-        elif [ -f /etc/apt/sources.list.d/proxmox-ve.list ]; then
-          cat /etc/apt/sources.list.d/proxmox-ve.list
-        else
-          echo "No repository file found"
-        fi
-      register: repo_check
-      changed_when: false
-      failed_when: false
-      ignore_errors: yes
-
-    - name: Display repository configuration
-      debug:
-        msg: "Proxmox repository: {{ repo_check.stdout }}"
-      when: repo_check.rc == 0 and "No repository file found" not in repo_check.stdout
-
-    - name: Try alternative package search
-      command: apt-cache madison proxmox-ve
-      register: proxmox_madison_check
-      changed_when: false
-      failed_when: false
-      ignore_errors: yes
-
-    - name: Display package availability (madison)
-      debug:
-        msg: "Package availability: {{ proxmox_madison_check.stdout_lines }}"
-      when: proxmox_madison_check.rc == 0 and proxmox_madison_check.stdout_lines | length > 0
-
-    - name: Warn if no Proxmox packages found
-      debug:
-        msg: |
-          ⚠️  WARNING: No Proxmox packages found in repository!
-          
-          Detected: Debian {{ debian_version }} -> Proxmox release: {{ proxmox_release_mapped }}
-          
-          Troubleshooting:
-          1. Check repository: cat /etc/apt/sources.list.d/proxmox-ve.list
-          2. Update cache: sudo apt update
-          3. Check if repository is accessible
-          4. Verify GPG key is installed correctly
-      when: 
-        - proxmox_package_check.stdout_lines | length == 0
-        - proxmox_madison_check.rc != 0 or proxmox_madison_check.stdout_lines | length == 0
-
-    - name: Pre-configure postfix to avoid interactive prompts
-      # Per official docs: Configure as "satellite system" if you have a mail server,
-      # or "local only" if you don't. We default to "local only" for non-interactive install.
+    - name: Pre-configure postfix
       debconf:
         name: postfix
         question: "{{ item.question }}"
         value: "{{ item.value }}"
-        vtype: "{{ item.vtype | default('string') }}"
+        vtype: "{{ item.vtype }}"
       loop:
         - { question: 'postfix/main_mailer_type', value: 'Local only', vtype: 'select' }
         - { question: 'postfix/mailname', value: '{{ proxmox_hostname | default(inventory_hostname) }}', vtype: 'string' }
-      ignore_errors: yes
+      when: proxmox_installed.rc != 0
 
-    - name: Install Proxmox VE default kernel (required first step per official docs)
+    - name: Install Proxmox kernel first
       apt:
         name: proxmox-default-kernel
         state: present
-      ignore_errors: yes
+        environment:
+          DEBIAN_FRONTEND: noninteractive
+      when: proxmox_installed.rc != 0
 
     - name: Install Proxmox VE packages
       apt:
@@ -334,89 +183,77 @@
           - open-iscsi
           - chrony
         state: present
-      environment:
-        DEBIAN_FRONTEND: noninteractive
-      ignore_errors: yes
+        environment:
+          DEBIAN_FRONTEND: noninteractive
+      when: proxmox_installed.rc != 0
 
-    - name: Find Debian kernel packages
-      shell: dpkg -l | grep -E '^ii.*linux-image-6\.12' | awk '{print $2}' || true
-      register: debian_kernel_packages
+    - name: Get installed Debian kernels
+      shell: dpkg -l | grep -E '^ii.*linux-image-(amd64|6\.12)' | awk '{print $2}'
+      register: debian_kernels
       changed_when: false
       failed_when: false
-      when: ansible_os_family == "Debian"
+      when: proxmox_installed.rc == 0
 
-    - name: Remove Debian kernel packages (required per official docs)
+    - name: Remove Debian kernels
       apt:
-        name: "{{ debian_kernel_packages.stdout_lines + ['linux-image-amd64'] }}"
+        name: "{{ debian_kernels.stdout_lines + ['linux-image-amd64'] }}"
         state: absent
-      ignore_errors: yes
-      when: 
-        - ansible_os_family == "Debian"
-        - debian_kernel_packages.stdout_lines | length > 0 or 'linux-image-amd64' in (ansible_facts.packages | default({}))
+      when:
+        - proxmox_installed.rc == 0
+        - debian_kernels.stdout_lines | length > 0
 
-    - name: Update GRUB configuration
+    - name: Update GRUB
       command: update-grub
       changed_when: false
       failed_when: false
-      ignore_errors: yes
-      when: ansible_os_family == "Debian"
+      when: proxmox_installed.rc == 0
 
-    - name: Remove os-prober (if present)
+    - name: Remove os-prober
       apt:
         name: os-prober
         state: absent
-      ignore_errors: yes
+      when: proxmox_installed.rc == 0
 
-    - name: Verify Proxmox installation
+    - name: Verify installation
       command: pveversion
-      register: proxmox_version_check
+      register: proxmox_version
       changed_when: false
       failed_when: false
-      ignore_errors: yes
 
-    - name: Display Proxmox version if installed
+    - name: Display Proxmox version
       debug:
-        msg: "Proxmox VE version: {{ proxmox_version_check.stdout }}"
-      when: proxmox_version_check.rc == 0
+        msg: "Proxmox VE {{ proxmox_version.stdout }} installed successfully"
+      when: proxmox_version.rc == 0
 
+# Configure Proxmox (optional)
 - name: Configure Proxmox
   when: proxmox_configure | default(true)
   block:
-    - name: Set hostname (if specified)
+    - name: Set hostname
       hostname:
         name: "{{ proxmox_hostname }}"
       when: proxmox_hostname is defined
 
-    - name: Configure network (if specified)
-      block:
-        - name: Backup network configuration
-          copy:
-            src: /etc/network/interfaces
-            dest: /etc/network/interfaces.backup
-            remote_src: yes
-          when: ansible_os_family == "Debian"
-          ignore_errors: yes
+    - name: Configure network
+      template:
+        src: interfaces.j2
+        dest: /etc/network/interfaces
+        backup: yes
+      when:
+        - proxmox_network_config is defined
+        - proxmox_network_config | length > 0
+      ignore_errors: yes
 
-        - name: Configure network interfaces
-          template:
-            src: interfaces.j2
-            dest: /etc/network/interfaces
-            backup: yes
-          when: 
-            - proxmox_network_config is defined
-            - proxmox_network_config | length > 0
-          ignore_errors: yes
-      when: proxmox_network_config is defined
-
-- name: Reboot system (if required)
+# Reboot handling
+- name: Handle reboot
   when: proxmox_reboot_after_install | default(true)
   block:
-    - name: Check if reboot is required
+    - name: Check if reboot required
       stat:
         path: /var/run/reboot-required
       register: reboot_file
 
-    - name: Ask user if they want to reboot
+    - name: Prompt for reboot
       pause:
         prompt: |
           ============================================================================
@@ -430,38 +267,30 @@
         echo: yes
       register: reboot_prompt
       when: reboot_file.stat.exists
-      failed_when: false
 
-    - name: Attempt to reboot system
+    - name: Reboot system
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
-        connect_timeout: 5
-      when: 
+      when:
         - reboot_file.stat.exists
         - reboot_prompt.user_input | default('no') | lower == 'yes'
       ignore_errors: yes
-      
-    - name: Remind user to reboot manually
+
+    - name: Remind to reboot manually
       debug:
         msg: |
           ============================================================================
           Reboot Required
           ============================================================================
           
-          Please reboot manually when ready:
-          $ sudo reboot
+          Please reboot manually: sudo reboot
           ============================================================================
-      when: 
+      when:
         - reboot_file.stat.exists
         - reboot_prompt.user_input | default('no') | lower != 'yes'
 
-- name: Get system hostname
-  command: hostname
-  register: system_hostname
-  changed_when: false
-  failed_when: false
-
+# Installation summary
 - name: Display installation summary
   debug:
     msg: |
@@ -475,7 +304,7 @@
          $ sudo reboot
       
       2. Access the Web Interface
-         URL: https://{{ proxmox_hostname | default(system_hostname.stdout) }}:8006
+         URL: https://{{ proxmox_hostname | default(inventory_hostname) }}:8006
          Login: root / (your root password)
       
       3. Configure Proxmox
@@ -490,4 +319,3 @@
       
       Documentation: https://pve.proxmox.com/pve-docs/
       ============================================================================
-
