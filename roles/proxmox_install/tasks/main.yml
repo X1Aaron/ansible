@@ -54,7 +54,7 @@
         vtype: "{{ item.vtype }}"
       loop:
         - { question: 'postfix/main_mailer_type', value: 'Local only', vtype: 'select' }
-        - { question: 'postfix/mailname', value: '{{ proxmox_hostname | default(inventory_hostname) }}', vtype: 'string' }
+        - { question: 'postfix/mailname', value: 'localhost', vtype: 'string' }
 
     - name: Set DEBIAN_FRONTEND for all apt operations
       set_fact:
@@ -247,33 +247,6 @@
         msg: "Proxmox VE {{ proxmox_version.stdout }} installed successfully"
       when: proxmox_version.rc == 0
 
-    - name: Re-check if Proxmox is now installed (after installation)
-      command: pveversion
-      register: proxmox_installed_after
-      changed_when: false
-      failed_when: false
-      ignore_errors: yes
-
-- name: Configure Proxmox (only if enabled and Proxmox is installed)
-  when: 
-    - proxmox_configure | default(true)
-    - (proxmox_installed.rc == 0) or (proxmox_installed_after.rc | default(1) == 0)
-  block:
-    - name: Set hostname
-      hostname:
-        name: "{{ proxmox_hostname }}"
-      when: proxmox_hostname is defined
-
-    - name: Configure network
-      template:
-        src: interfaces.j2
-        dest: /etc/network/interfaces
-        backup: yes
-      when:
-        - proxmox_network_config is defined
-        - proxmox_network_config | length > 0
-      ignore_errors: yes
-
 - name: Handle reboot (only if installation was performed)
   when: 
     - proxmox_reboot_after_install | default(true)
@@ -325,11 +298,11 @@
   debug:
     msg: |
       ============================================================================
-      Proxmox VE Installation {{ 'Complete' if ((proxmox_installed.rc == 0) or (proxmox_installed_after.rc | default(1) == 0)) else 'Ready' }}!
+      Proxmox VE Installation {{ 'Complete' if proxmox_version.rc == 0 else 'Ready' }}!
       ============================================================================
       {% if proxmox_installed.rc == 0 %}
       Status: Already installed ({{ proxmox_version.stdout | default('version unknown') }})
-      {% elif proxmox_installed_after.rc | default(1) == 0 %}
+      {% elif proxmox_version.rc == 0 %}
       Status: Installation completed successfully
       Version: {{ proxmox_version.stdout | default('version unknown') }}
       {% else %}
@@ -344,18 +317,13 @@
       {% endif %}
       
       2. Access the Web Interface
-         URL: https://{{ proxmox_hostname | default(inventory_hostname) }}:8006
+         URL: https://{{ inventory_hostname }}:8006
          Login: root / (your root password)
       
-      3. Configure Proxmox
+      3. Configure Proxmox (use separate playbooks for network, storage, etc.)
          - Set up storage
          - Configure network bridges
          - Create virtual machines/containers
-      
-      Important Notes:
-      - If you changed the hostname, ensure DNS is configured correctly
-      - The hostname must resolve to a non-loopback IP address
-      - Check /etc/hosts if hostname resolution fails
       
       Documentation: https://pve.proxmox.com/pve-docs/
       ============================================================================

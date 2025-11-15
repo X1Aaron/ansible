@@ -29,24 +29,14 @@
 # Install Proxmox VE packages
 # proxmox_install_packages: true         # [OPTIONAL] Install Proxmox VE packages
 
-# Configure Proxmox after installation
-# proxmox_configure: true                 # [OPTIONAL] Configure Proxmox after installation
-
-# Hostname for the Proxmox server
-# proxmox_hostname: pve1.example.com      # [OPTIONAL] Hostname for the Proxmox server
-
 # Reboot after installation (if required)
 # proxmox_reboot_after_install: true      # [OPTIONAL] Reboot after installation (if required)
 
-# Network configuration (optional)
-# Uncomment and configure if you need to set up network interfaces
-# proxmox_network_config:                # [OPTIONAL] Network configuration
-#   - interface: enp0s3
-#     method: static
-#     address: 192.168.1.100
-#     netmask: 255.255.255.0
-#     gateway: 192.168.1.1
-#     dns_nameservers:
-#       - 8.8.8.8
-#       - 8.8.4.4
+# NOTE: This playbook ONLY installs Proxmox VE. It does NOT configure:
+# - Network interfaces
+# - Hostname
+# - Storage
+# - Other Proxmox settings
+# 
+# Use separate playbooks for configuration tasks.
 

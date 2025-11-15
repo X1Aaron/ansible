@@ -20,7 +20,6 @@
         proxmox_release: "{{ proxmox_release | default('trixie') }}"
         proxmox_update_system: "{{ proxmox_update_system | default(true) }}"
         proxmox_install_packages: "{{ proxmox_install_packages | default(true) }}"
-        proxmox_configure: "{{ proxmox_configure | default(true) }}"
         proxmox_reboot_after_install: "{{ proxmox_reboot_after_install | default(true) }}"
   
   roles:
