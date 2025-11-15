@@ -44,7 +44,7 @@ users:
     ssh_public_key: "ssh-rsa AAAAB3..."              # [RECOMMENDED] Your SSH public key
     sudo_passwordless: true                          # [OPTIONAL] Passwordless sudo (only if user is in 'sudo' group)
     # password: "$6$..."                             # [OPTIONAL] Password hash (for console login)
-    comment: "My user"                                # [OPTIONAL] User description
+    comment: "My user"                               # [OPTIONAL] User description
 
   # ========================================================================
   # USER 2 - Copy any user block above, paste here, and modify
@@ -64,10 +64,9 @@ users:
   #   ssh_public_key: "ssh-rsa AAAAB3..."             # [RECOMMENDED] Your SSH public key
   #   # sudo_passwordless: true                       # [OPTIONAL] Passwordless sudo
   #   # password: "$6$..."                           # [OPTIONAL] Password hash
-  #   # comment: "Third user"                        # [OPTIONAL] User description
+  #   # comment: "Third user"                         # [OPTIONAL] User description
 
 # ============================================================================
 # OPTIONS
 # ============================================================================
 # remove_orphaned_users: false                      # [OPTIONAL] Set to true to delete users not in the 'users' list above
-
