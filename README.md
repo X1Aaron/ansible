@@ -104,9 +104,7 @@ users_to_create:
     shell: /bin/bash
     comment: "John Doe - Developer"
     create_home: true
-    generate_ssh_key: true
-    ssh_key_type: rsa
-    ssh_key_bits: 2048
+    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-public-key-here"
 ```
 
 Run the playbook:
@@ -173,7 +171,9 @@ ansible-playbook playbooks/user-management.yml -e "user_action=list"
 - `password_lock`: Lock the password (default: false)
 - `system`: Create as system user (default: false)
 - `uid`: Specific UID for the user
-- `generate_ssh_key`: Generate SSH key for user (default: false)
+- `ssh_public_key`: Add your public SSH key to user's authorized_keys (recommended)
+- `ssh_keys_exclusive`: Replace all existing keys (default: false, adds to existing keys)
+- `generate_ssh_key`: Generate SSH key for user (default: false, not recommended - use ssh_public_key instead)
 - `ssh_key_type`: SSH key type (default: rsa)
 - `ssh_key_bits`: SSH key bits (default: 2048)
 

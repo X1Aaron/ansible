@@ -18,9 +18,12 @@ users_to_create:
     shell: /bin/bash
     comment: "My server user"
     create_home: true
-    generate_ssh_key: true
-    ssh_key_type: rsa
-    ssh_key_bits: 2048
+    # Option 1: Add your public SSH key (recommended)
+    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-key-here"
+    # Option 2: Or generate a new SSH key (not recommended - use public key instead)
+    # generate_ssh_key: true
+    # ssh_key_type: rsa
+    # ssh_key_bits: 2048
     # Password will be automatically looked up from vault/passwords.yml if it exists
     # Or you can specify it explicitly:
     # password: "{{ user_passwords['my_user'] | default(omit) }}"

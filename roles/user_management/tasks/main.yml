@@ -25,6 +25,20 @@
       register: user_create_result
       changed_when: user_create_result.changed
 
+    - name: Add SSH authorized keys for users
+      authorized_key:
+        user: "{{ item.name }}"
+        key: "{{ item.ssh_public_key }}"
+        state: present
+        exclusive: "{{ item.ssh_keys_exclusive | default(false) }}"
+      loop: "{{ users_to_create | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: 
+        - item.ssh_public_key is defined
+        - item.ssh_public_key | length > 0
+      ignore_errors: false
+
     - name: Display created users
       debug:
         msg: "User '{{ item.name }}' has been created successfully"
@@ -50,6 +64,20 @@
       loop_control:
         label: "{{ item.name }}"
       register: user_modify_result
+
+    - name: Add SSH authorized keys for modified users
+      authorized_key:
+        user: "{{ item.name }}"
+        key: "{{ item.ssh_public_key }}"
+        state: present
+        exclusive: "{{ item.ssh_keys_exclusive | default(false) }}"
+      loop: "{{ users_to_modify | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: 
+        - item.ssh_public_key is defined
+        - item.ssh_public_key | length > 0
+      ignore_errors: false
 
     - name: Display modified users
       debug:

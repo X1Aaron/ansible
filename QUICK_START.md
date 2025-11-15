@@ -25,9 +25,15 @@
        shell: /bin/bash
        comment: "John Doe - Developer"
        create_home: true
-       generate_ssh_key: true
-       ssh_key_type: rsa
-       ssh_key_bits: 2048
+       ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-public-key-here"
+   ```
+   
+   **To get your public key:**
+   ```bash
+   # On your local machine
+   cat ~/.ssh/id_rsa.pub
+   # Or
+   cat ~/.ssh/id_ed25519.pub
    ```
 
 4. **Run the playbook:**
@@ -59,13 +65,14 @@ users_to_create:
     shell: /bin/bash
     comment: "Alice - DevOps Engineer"
     create_home: true
-    generate_ssh_key: true
+    ssh_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... alice-public-key"
 
   - name: bob
     groups: ['www-data']
     shell: /bin/bash
     comment: "Bob - Web Developer"
     create_home: true
+    ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... bob-public-key"
 
 users_to_modify:
   - name: existing_user
