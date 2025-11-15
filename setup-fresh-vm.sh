@@ -23,6 +23,9 @@ sudo rm -rf /opt/ansible
 sudo git clone https://github.com/X1Aaron/ansible.git /opt/ansible
 sudo chown -R $USER:$USER /opt/ansible
 
+# Make sync-repo.sh executable
+chmod +x /opt/ansible/sync-repo.sh
+
 # Create local config files from examples
 cd /opt/ansible
 
@@ -74,5 +77,5 @@ echo "You are now in: $(pwd)"
 echo "=========================================="
 
 # Change to ansible directory
-cd "$INSTALL_DIR"
+cd /opt/ansible
 
