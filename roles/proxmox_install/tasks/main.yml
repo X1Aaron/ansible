@@ -52,7 +52,7 @@
 
     - name: Set the actual IP to use
       set_fact:
-        detected_ip: "{{ (actual_ip.stdout | default('')) | length > 0 | ternary(actual_ip.stdout, actual_ip_fallback.stdout | default('')) }}"
+        detected_ip: "{{ (actual_ip.stdout | default('') | length) > 0 | ternary(actual_ip.stdout | default(''), actual_ip_fallback.stdout | default('')) }}"
 
     - name: Read /etc/hosts file for display
       slurp:
