@@ -1,0 +1,92 @@
+---
+- name: Create users
+  when: action == 'create'
+  block:
+    - name: Create user accounts
+      user:
+        name: "{{ item.name }}"
+        state: present
+        groups: "{{ item.groups | default([]) }}"
+        append: "{{ item.append | default(true) }}"
+        shell: "{{ item.shell | default('/bin/bash') }}"
+        home: "{{ item.home | default(omit) }}"
+        create_home: "{{ item.create_home | default(true) }}"
+        comment: "{{ item.comment | default(omit) }}"
+        password: "{{ item.password | default(omit) }}"
+        password_lock: "{{ item.password_lock | default(false) }}"
+        system: "{{ item.system | default(false) }}"
+        uid: "{{ item.uid | default(omit) }}"
+        generate_ssh_key: "{{ item.generate_ssh_key | default(false) }}"
+        ssh_key_bits: "{{ item.ssh_key_bits | default(2048) }}"
+        ssh_key_type: "{{ item.ssh_key_type | default('rsa') }}"
+      loop: "{{ users_to_create | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: user_create_result
+      changed_when: user_create_result.changed
+
+    - name: Display created users
+      debug:
+        msg: "User '{{ item.name }}' has been created successfully"
+      loop: "{{ users_to_create | default([]) }}"
+      when: user_create_result.changed
+
+- name: Modify users
+  when: action == 'modify'
+  block:
+    - name: Modify user accounts
+      user:
+        name: "{{ item.name }}"
+        state: present
+        groups: "{{ item.groups | default(omit) }}"
+        append: "{{ item.append | default(true) }}"
+        shell: "{{ item.shell | default(omit) }}"
+        home: "{{ item.home | default(omit) }}"
+        comment: "{{ item.comment | default(omit) }}"
+        password: "{{ item.password | default(omit) }}"
+        password_lock: "{{ item.password_lock | default(false) }}"
+        uid: "{{ item.uid | default(omit) }}"
+      loop: "{{ users_to_modify | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: user_modify_result
+
+    - name: Display modified users
+      debug:
+        msg: "User '{{ item.name }}' has been modified"
+      loop: "{{ users_to_modify | default([]) }}"
+      when: user_modify_result.changed
+
+- name: Delete users
+  when: action == 'delete'
+  block:
+    - name: Remove user accounts
+      user:
+        name: "{{ item }}"
+        state: absent
+        remove: "{{ remove_home | default(false) }}"
+        force: "{{ force_remove | default(false) }}"
+      loop: "{{ users_to_delete | default([]) }}"
+      register: user_delete_result
+
+    - name: Display deleted users
+      debug:
+        msg: "User '{{ item }}' has been deleted"
+      loop: "{{ users_to_delete | default([]) }}"
+      when: user_delete_result.changed
+
+- name: List users
+  when: action == 'list'
+  block:
+    - name: Get all users
+      getent:
+        database: passwd
+      register: all_users
+
+    - name: Display all users
+      debug:
+        msg: "User: {{ item.key }} (UID: {{ item.value[1] }}, GID: {{ item.value[2] }}, Home: {{ item.value[4] }}, Shell: {{ item.value[5] }})"
+      loop: "{{ all_users.ansible_facts.getent_passwd | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+

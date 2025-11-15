@@ -1,0 +1,36 @@
+---
+# User Management Variables
+# 
+# This file contains the user definitions for management operations.
+# Uncomment and modify the sections below based on your needs.
+
+# Users to create
+users_to_create:
+  # - name: john_doe
+  #   groups: ['sudo', 'docker']
+  #   shell: /bin/bash
+  #   comment: "John Doe - Developer"
+  #   create_home: true
+  #   generate_ssh_key: true
+  #   ssh_key_type: rsa
+  #   ssh_key_bits: 2048
+  #   password: "{{ vaulted_password }}"  # Use ansible-vault for passwords
+  #   password_lock: false
+
+# Users to modify
+users_to_modify:
+  # - name: existing_user
+  #   groups: ['sudo']
+  #   append: true
+  #   shell: /bin/zsh
+  #   comment: "Updated comment"
+
+# Users to delete
+users_to_delete:
+  # - old_user1
+  # - old_user2
+
+# Options for delete action
+remove_home: false  # Set to true to remove home directory when deleting user
+force_remove: false  # Set to true to force removal even if user is logged in
+

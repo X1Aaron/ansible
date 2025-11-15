@@ -1,0 +1,14 @@
+---
+- name: User Management Playbook
+  hosts: localhost
+  become: yes
+  vars_files:
+    - ../vars/users.yml
+  
+  tasks:
+    - name: Include user management role
+      include_role:
+        name: user_management
+      vars:
+        action: "{{ user_action | default('create') }}"
+
