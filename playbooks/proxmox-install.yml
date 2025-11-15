@@ -17,7 +17,6 @@
       include_vars:
         file: ../vars/proxmox.local.yml
       ignore_errors: yes
-      when: proxmox_local_config_file is not defined
   
   roles:
     - role: proxmox_install
