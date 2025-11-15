@@ -17,11 +17,14 @@
       changed_when: false
       failed_when: false
 
-    - name: Set user home directory and login user facts
+    - name: Set login user fact
+      set_fact:
+        login_user: "{{ login_user_result.stdout | default('root') }}"
+
+    - name: Set user home directory and current user facts
       set_fact:
         user_home: "{{ user_home_result.stdout | default('/home/' + login_user) }}"
-        current_user: "{{ login_user_result.stdout | default('root') }}"
-        login_user: "{{ login_user_result.stdout | default('root') }}"
+        current_user: "{{ login_user }}"
 
     - name: Check if current user has SSH key authentication
       stat:
