@@ -175,8 +175,36 @@ systemctl enable systemd-networkd
 # Enable systemd-resolved (DNS)
 systemctl enable systemd-resolved
 
+# Check what's actually enabled
+systemctl list-unit-files | grep -E 'ssh|network' | grep enabled
+
+# Check boot logs for errors (from normal boot)
+journalctl -b -1 | grep -iE 'ssh|network|error|fail' | tail -50
+
 # Exit recovery mode
 exit
+```
+
+### Debug: Check what's different between recovery and normal boot
+```bash
+# From recovery mode, check what services are enabled
+mount -o remount,rw /
+
+# List all enabled services
+systemctl list-unit-files --state=enabled | grep -E 'ssh|network'
+
+# Check if there are any failed services from last boot
+journalctl -b -1 | grep -i "failed\|error" | tail -20
+
+# Check network interface status from last boot
+journalctl -b -1 | grep -i "eth0\|enp\|network" | tail -20
+
+# Check if UFW was blocking on last boot
+journalctl -b -1 | grep -i "ufw\|firewall" | tail -20
+
+# Check SSH service status from last boot
+journalctl -b -1 -u ssh | tail -30
+journalctl -b -1 -u sshd | tail -30
 ```
 
 ## Common Issues
