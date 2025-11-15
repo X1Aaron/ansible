@@ -42,6 +42,41 @@
       set_fact:
         ansible_os_family: "{{ os_family_result.stdout }}"
 
+    - name: Check if fail2ban is already configured
+      when: hardening_configure_fail2ban | default(true)
+      block:
+        - name: Check if fail2ban is installed
+          command: dpkg -l | grep -q "^ii.*fail2ban" || echo "not_installed"
+          register: fail2ban_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Check if fail2ban config exists
+          stat:
+            path: /etc/fail2ban/jail.local
+          register: fail2ban_config
+
+        - name: Check if fail2ban service is active
+          command: systemctl is-active fail2ban || echo "inactive"
+          register: fail2ban_service
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Fail2ban Configuration Status
+              ============================================================================
+              
+              Fail2ban installed: {{ 'Yes' if fail2ban_installed.rc == 0 else 'No' }}
+              Config file exists: {{ 'Yes' if fail2ban_config.stat.exists else 'No' }}
+              Service status: {{ fail2ban_service.stdout | default('Unknown') }}
+              
+              Status: {{ 'Already configured' if (fail2ban_installed.rc == 0 and fail2ban_config.stat.exists and fail2ban_service.stdout == 'active') else 'Needs configuration' }}
+              ============================================================================
+
     - name: Install and configure fail2ban
       when: hardening_configure_fail2ban | default(true)
       block:
@@ -79,6 +114,43 @@
             name: fail2ban
             state: started
             enabled: yes
+
+    - name: Verify fail2ban configuration
+      when: hardening_configure_fail2ban | default(true)
+      block:
+        - name: Flush handlers to ensure fail2ban is restarted
+          meta: flush_handlers
+
+        - name: Verify fail2ban is installed
+          command: dpkg -l | grep -q "^ii.*fail2ban"
+          register: verify_fail2ban_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Verify fail2ban config file exists
+          stat:
+            path: /etc/fail2ban/jail.local
+          register: verify_fail2ban_config
+
+        - name: Verify fail2ban service is running
+          systemd:
+            name: fail2ban
+          register: verify_fail2ban_service
+          failed_when: false
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Fail2ban Configuration
+              ============================================================================
+              
+              Fail2ban installed: {{ '✅ Yes' if verify_fail2ban_installed.rc == 0 else '❌ No' }}
+              Config file exists: {{ '✅ Yes' if verify_fail2ban_config.stat.exists else '❌ No' }}
+              Service running: {{ '✅ Yes' if verify_fail2ban_service.status.ActiveState == 'active' else '❌ No' }}
+              
+              {{ '✅ All fail2ban checks passed!' if (verify_fail2ban_installed.rc == 0 and verify_fail2ban_config.stat.exists and verify_fail2ban_service.status.ActiveState == 'active') else '⚠️  Some checks failed - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

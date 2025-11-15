@@ -6,6 +6,33 @@
     - ../vars/hardening.local.yml
   
   tasks:
+    - name: Check current service status
+      when: hardening_disable_services | default(true)
+      block:
+        - name: Check status of services to be disabled
+          command: systemctl is-enabled "{{ item }}.service" || echo "not_found"
+          register: service_status_check
+          changed_when: false
+          failed_when: false
+          loop: "{{ hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) }}"
+          loop_control:
+            label: "{{ item }}"
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Service Status
+              ============================================================================
+              
+              Services to disable:
+              {% for item in hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) %}
+              - {{ item }}: {{ service_status_check.results[loop.index0].stdout | default('unknown') }}
+              {% endfor %}
+              
+              Status: {{ 'Needs disabling' if (service_status_check.results | selectattr('stdout', 'ne', 'disabled') | selectattr('stdout', 'ne', 'not_found') | list | length > 0) else 'Already disabled or not found' }}
+              ============================================================================
+
     - name: Disable unnecessary services
       when: hardening_disable_services | default(true)
       block:
@@ -26,6 +53,33 @@
           loop: "{{ service_check.results }}"
           when: item.rc == 0
           ignore_errors: yes
+
+    - name: Verify services are disabled
+      when: hardening_disable_services | default(true)
+      block:
+        - name: Verify service status after changes
+          command: systemctl is-enabled "{{ item }}.service" || echo "not_found"
+          register: verify_service_status
+          changed_when: false
+          failed_when: false
+          loop: "{{ hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) }}"
+          loop_control:
+            label: "{{ item }}"
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Service Disabling
+              ============================================================================
+              
+              Service status after changes:
+              {% for item in hardening_disabled_services | default(['telnet', 'rsh', 'rlogin', 'rexec', 'nis']) %}
+              - {{ item }}: {{ verify_service_status.results[loop.index0].stdout | default('unknown') }} {{ '✅' if verify_service_status.results[loop.index0].stdout in ['disabled', 'not_found'] else '❌' }}
+              {% endfor %}
+              
+              {{ '✅ All services disabled or not found!' if (verify_service_status.results | selectattr('stdout', 'in', ['disabled', 'not_found']) | list | length == verify_service_status.results | length) else '⚠️  Some services may still be enabled' }}
+              ============================================================================
 
     - name: Display summary
       debug:

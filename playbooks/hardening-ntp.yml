@@ -23,6 +23,52 @@
       set_fact:
         ansible_pkg_mgr: "{{ pkg_mgr_result.stdout }}"
 
+    - name: Check if time sync is already configured
+      when: hardening_configure_ntp | default(true)
+      block:
+        - name: Check if chrony is installed
+          command: which chronyd || echo "not_found"
+          register: chrony_check_pre
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Check if ntp is installed
+          command: which ntpd || echo "not_found"
+          register: ntp_check_pre
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Check chrony service status
+          command: systemctl is-active chronyd || echo "inactive"
+          register: chrony_service_pre
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Check ntp service status
+          command: systemctl is-active ntpd || echo "inactive"
+          register: ntp_service_pre
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Time Synchronization Status
+              ============================================================================
+              
+              Chrony installed: {{ 'Yes' if chrony_check_pre.rc == 0 else 'No' }}
+              NTP installed: {{ 'Yes' if ntp_check_pre.rc == 0 else 'No' }}
+              Chrony service: {{ chrony_service_pre.stdout | default('Unknown') }}
+              NTP service: {{ ntp_service_pre.stdout | default('Unknown') }}
+              
+              Status: {{ 'Already configured' if (chrony_service_pre.stdout == 'active' or ntp_service_pre.stdout == 'active') else 'Needs configuration' }}
+              ============================================================================
+
     - name: Configure time synchronization
       when: hardening_configure_ntp | default(true)
       block:
@@ -65,6 +111,36 @@
             - ansible_pkg_mgr == "apt"
             - chrony_check.rc != 0
           ignore_errors: yes
+
+    - name: Verify time synchronization configuration
+      when: hardening_configure_ntp | default(true)
+      block:
+        - name: Verify chrony or ntp is installed
+          command: which chronyd || which ntpd || echo "not_found"
+          register: verify_time_sync_installed
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Verify time sync service is running
+          command: systemctl is-active chronyd || systemctl is-active ntpd || echo "inactive"
+          register: verify_time_sync_service
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Time Synchronization Configuration
+              ============================================================================
+              
+              Time sync installed: {{ '✅ Yes' if verify_time_sync_installed.rc == 0 else '❌ No' }}
+              Service running: {{ '✅ Yes' if verify_time_sync_service.stdout == 'active' else '❌ No' }}
+              
+              {{ '✅ All time sync checks passed!' if (verify_time_sync_installed.rc == 0 and verify_time_sync_service.stdout == 'active') else '⚠️  Some checks failed - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

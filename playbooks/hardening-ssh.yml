@@ -77,6 +77,50 @@
             - login_user == "root"
             - (hardening_ssh_permit_root_login | default("no")) == "no"
 
+    - name: Check if SSH hardening is already applied
+      when: hardening_ssh_harden | default(true)
+      block:
+        - name: Get current SSH config values
+          shell: |
+            echo "PermitRootLogin=$(grep -E '^PermitRootLogin|^#PermitRootLogin' /etc/ssh/sshd_config | tail -1 | sed 's/^#PermitRootLogin/PermitRootLogin/' | awk '{print $2}')"
+            echo "PasswordAuthentication=$(grep -E '^PasswordAuthentication|^#PasswordAuthentication' /etc/ssh/sshd_config | tail -1 | sed 's/^#PasswordAuthentication/PasswordAuthentication/' | awk '{print $2}')"
+            echo "PubkeyAuthentication=$(grep -E '^PubkeyAuthentication|^#PubkeyAuthentication' /etc/ssh/sshd_config | tail -1 | sed 's/^#PubkeyAuthentication/PubkeyAuthentication/' | awk '{print $2}')"
+            echo "MaxAuthTries=$(grep -E '^MaxAuthTries|^#MaxAuthTries' /etc/ssh/sshd_config | tail -1 | sed 's/^#MaxAuthTries/MaxAuthTries/' | awk '{print $2}')"
+          register: current_ssh_config
+          changed_when: false
+          failed_when: false
+
+        - name: Parse current SSH config
+          set_fact:
+            current_permit_root: "{{ current_ssh_config.stdout | regex_search('PermitRootLogin=([^\\n]+)', '\\1') | default('unknown') }}"
+            current_password_auth: "{{ current_ssh_config.stdout | regex_search('PasswordAuthentication=([^\\n]+)', '\\1') | default('unknown') }}"
+            current_pubkey_auth: "{{ current_ssh_config.stdout | regex_search('PubkeyAuthentication=([^\\n]+)', '\\1') | default('unknown') }}"
+            current_max_auth_tries: "{{ current_ssh_config.stdout | regex_search('MaxAuthTries=([^\\n]+)', '\\1') | default('unknown') }}"
+
+        - name: Check if SSH backup exists
+          stat:
+            path: /etc/ssh/sshd_config.backup
+          register: ssh_backup_exists
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: SSH Hardening Status
+              ============================================================================
+              
+              Backup exists: {{ 'Yes' if ssh_backup_exists.stat.exists else 'No' }}
+              Current PermitRootLogin: {{ current_permit_root }}
+              Current PasswordAuthentication: {{ current_password_auth }}
+              Current PubkeyAuthentication: {{ current_pubkey_auth }}
+              Current MaxAuthTries: {{ current_max_auth_tries }}
+              
+              Expected PermitRootLogin: {{ hardening_ssh_permit_root_login | default("no") }}
+              Expected PasswordAuthentication: {{ hardening_ssh_password_auth | default("no") }}
+              
+              Status: {{ 'Already hardened' if (current_permit_root == (hardening_ssh_permit_root_login | default("no")) and current_password_auth == (hardening_ssh_password_auth | default("no"))) else 'Needs hardening' }}
+              ============================================================================
+
     - name: Harden SSH configuration
       when: hardening_ssh_harden | default(true)
       block:
@@ -115,6 +159,54 @@
             backup: yes
           when: hardening_ssh_port is defined
           notify: restart sshd
+
+    - name: Verify SSH hardening configuration
+      when: hardening_ssh_harden | default(true)
+      block:
+        - name: Flush handlers to ensure SSH is restarted
+          meta: flush_handlers
+
+        - name: Get actual SSH config values after changes
+          shell: |
+            echo "PermitRootLogin=$(grep -E '^PermitRootLogin|^#PermitRootLogin' /etc/ssh/sshd_config | tail -1 | sed 's/^#PermitRootLogin/PermitRootLogin/' | awk '{print $2}')"
+            echo "PasswordAuthentication=$(grep -E '^PasswordAuthentication|^#PasswordAuthentication' /etc/ssh/sshd_config | tail -1 | sed 's/^#PasswordAuthentication/PasswordAuthentication/' | awk '{print $2}')"
+            echo "PubkeyAuthentication=$(grep -E '^PubkeyAuthentication|^#PubkeyAuthentication' /etc/ssh/sshd_config | tail -1 | sed 's/^#PubkeyAuthentication/PubkeyAuthentication/' | awk '{print $2}')"
+            echo "MaxAuthTries=$(grep -E '^MaxAuthTries|^#MaxAuthTries' /etc/ssh/sshd_config | tail -1 | sed 's/^#MaxAuthTries/MaxAuthTries/' | awk '{print $2}')"
+            echo "X11Forwarding=$(grep -E '^X11Forwarding|^#X11Forwarding' /etc/ssh/sshd_config | tail -1 | sed 's/^#X11Forwarding/X11Forwarding/' | awk '{print $2}')"
+          register: verify_ssh_config
+          changed_when: false
+          failed_when: false
+
+        - name: Parse verified SSH config
+          set_fact:
+            verified_permit_root: "{{ verify_ssh_config.stdout | regex_search('PermitRootLogin=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_password_auth: "{{ verify_ssh_config.stdout | regex_search('PasswordAuthentication=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_pubkey_auth: "{{ verify_ssh_config.stdout | regex_search('PubkeyAuthentication=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_max_auth_tries: "{{ verify_ssh_config.stdout | regex_search('MaxAuthTries=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_x11: "{{ verify_ssh_config.stdout | regex_search('X11Forwarding=([^\\n]+)', '\\1') | default('unknown') }}"
+
+        - name: Check if SSH service is running
+          systemd:
+            name: ssh
+          register: ssh_service_status
+          failed_when: false
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: SSH Hardening Configuration
+              ============================================================================
+              
+              SSH Service: {{ '✅ Running' if ssh_service_status.status.ActiveState == 'active' else '❌ Not running' }}
+              PermitRootLogin: {{ verified_permit_root }} (expected: {{ hardening_ssh_permit_root_login | default("no") }}) {{ '✅' if verified_permit_root == (hardening_ssh_permit_root_login | default("no")) else '❌' }}
+              PasswordAuthentication: {{ verified_password_auth }} (expected: {{ hardening_ssh_password_auth | default("no") }}) {{ '✅' if verified_password_auth == (hardening_ssh_password_auth | default("no")) else '❌' }}
+              PubkeyAuthentication: {{ verified_pubkey_auth }} (expected: {{ hardening_ssh_pubkey_auth | default("yes") }}) {{ '✅' if verified_pubkey_auth == (hardening_ssh_pubkey_auth | default("yes")) else '❌' }}
+              MaxAuthTries: {{ verified_max_auth_tries }} (expected: {{ hardening_ssh_max_auth_tries | default(3) }}) {{ '✅' if verified_max_auth_tries == (hardening_ssh_max_auth_tries | default(3) | string) else '❌' }}
+              X11Forwarding: {{ verified_x11 }} (expected: {{ hardening_ssh_x11_forwarding | default("no") }}) {{ '✅' if verified_x11 == (hardening_ssh_x11_forwarding | default("no")) else '❌' }}
+              
+              {{ '✅ All SSH hardening settings verified!' if (verified_permit_root == (hardening_ssh_permit_root_login | default("no")) and verified_password_auth == (hardening_ssh_password_auth | default("no")) and ssh_service_status.status.ActiveState == 'active') else '⚠️  Some settings may not match - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

@@ -36,6 +36,43 @@
       set_fact:
         ansible_os_family: "{{ os_family_result.stdout }}"
 
+    - name: Check if audit logging is already configured
+      when: hardening_configure_audit | default(true)
+      block:
+        - name: Check if auditd is installed (Debian)
+          command: dpkg -l | grep -q "^ii.*auditd" || echo "not_installed"
+          register: auditd_installed_debian
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "Debian"
+
+        - name: Check if audit is installed (RedHat)
+          command: rpm -q audit || echo "not_installed"
+          register: audit_installed_redhat
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "RedHat"
+
+        - name: Check if auditd service is active
+          command: systemctl is-active auditd || echo "inactive"
+          register: auditd_service
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Audit Logging Status
+              ============================================================================
+              
+              Audit installed: {{ 'Yes' if ((ansible_os_family == 'Debian' and auditd_installed_debian.rc == 0) or (ansible_os_family == 'RedHat' and audit_installed_redhat.rc == 0)) else 'No' }}
+              Service status: {{ auditd_service.stdout | default('Unknown') }}
+              
+              Status: {{ 'Already configured' if (auditd_service.stdout == 'active') else 'Needs configuration' }}
+              ============================================================================
+
     - name: Configure audit logging
       when: hardening_configure_audit | default(true)
       block:
@@ -59,6 +96,42 @@
             state: started
             enabled: yes
           ignore_errors: yes
+
+    - name: Verify audit logging configuration
+      when: hardening_configure_audit | default(true)
+      block:
+        - name: Verify auditd is installed (Debian)
+          command: dpkg -l | grep -q "^ii.*auditd"
+          register: verify_auditd_installed_debian
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "Debian"
+
+        - name: Verify audit is installed (RedHat)
+          command: rpm -q audit
+          register: verify_audit_installed_redhat
+          changed_when: false
+          failed_when: false
+          when: ansible_os_family == "RedHat"
+
+        - name: Verify auditd service is running
+          systemd:
+            name: auditd
+          register: verify_auditd_service
+          failed_when: false
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Audit Logging Configuration
+              ============================================================================
+              
+              Audit installed: {{ '✅ Yes' if ((ansible_os_family == 'Debian' and verify_auditd_installed_debian.rc == 0) or (ansible_os_family == 'RedHat' and verify_audit_installed_redhat.rc == 0)) else '❌ No' }}
+              Service running: {{ '✅ Yes' if verify_auditd_service.status.ActiveState == 'active' else '❌ No' }}
+              
+              {{ '✅ All audit logging checks passed!' if (verify_auditd_service.status.ActiveState == 'active') else '⚠️  Some checks failed - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

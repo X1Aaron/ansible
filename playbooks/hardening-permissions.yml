@@ -6,6 +6,32 @@
     - ../vars/hardening.local.yml
   
   tasks:
+    - name: Check current file permissions
+      when: hardening_set_file_permissions | default(true)
+      block:
+        - name: Get current file permissions
+          stat:
+            path: "{{ item.path }}"
+          register: current_file_perms
+          loop: "{{ hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}]) }}"
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: File Permissions Status
+              ============================================================================
+              
+              Current permissions:
+              {% for item in hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}]) %}
+              - {{ item.path }}: {{ current_file_perms.results[loop.index0].stat.mode | default('unknown') }} (expected: {{ item.mode }})
+              {% endfor %}
+              
+              Status: {{ 'Needs adjustment' if (current_file_perms.results | selectattr('stat.mode', 'ne', item.mode) | list | length > 0) else 'Already set correctly' }}
+              ============================================================================
+          vars:
+            item: "{{ hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}])[0] }}"
+
     - name: Set restrictive file permissions
       when: hardening_set_file_permissions | default(true)
       block:
@@ -16,6 +42,32 @@
             state: file
           loop: "{{ hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}]) }}"
           ignore_errors: yes
+
+    - name: Verify file permissions
+      when: hardening_set_file_permissions | default(true)
+      block:
+        - name: Verify file permissions after changes
+          stat:
+            path: "{{ item.path }}"
+          register: verify_file_perms
+          loop: "{{ hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}]) }}"
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: File Permissions
+              ============================================================================
+              
+              File permissions after changes:
+              {% for item in hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}]) %}
+              - {{ item.path }}: {{ verify_file_perms.results[loop.index0].stat.mode | default('unknown') }} (expected: {{ item.mode }}) {{ '✅' if verify_file_perms.results[loop.index0].stat.mode == item.mode else '❌' }}
+              {% endfor %}
+              
+              {{ '✅ All file permissions verified!' if (verify_file_perms.results | selectattr('stat.mode', 'eq', item.mode) | list | length == verify_file_perms.results | length) else '⚠️  Some permissions may not match - review configuration' }}
+              ============================================================================
+          vars:
+            item: "{{ hardening_file_permissions | default([{'path': '/etc/passwd', 'mode': '0644'}, {'path': '/etc/shadow', 'mode': '0640'}, {'path': '/etc/group', 'mode': '0644'}])[0] }}"
 
     - name: Display summary
       debug:

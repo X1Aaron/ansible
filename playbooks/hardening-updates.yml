@@ -36,6 +36,39 @@
       set_fact:
         ansible_os_family: "{{ os_family_result.stdout }}"
 
+    - name: Check if auto-updates are already configured
+      when: hardening_auto_updates | default(true) and ansible_os_family == "Debian"
+      block:
+        - name: Check if unattended-upgrades config exists
+          stat:
+            path: /etc/apt/apt.conf.d/50unattended-upgrades
+          register: unattended_config
+
+        - name: Check if auto-upgrades config exists
+          stat:
+            path: /etc/apt/apt.conf.d/20auto-upgrades
+          register: auto_upgrades_config
+
+        - name: Check if unattended-upgrades is installed
+          command: dpkg -l | grep -q "^ii.*unattended-upgrades" || echo "not_installed"
+          register: unattended_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Auto-Updates Configuration
+              ============================================================================
+              
+              Unattended-upgrades installed: {{ 'Yes' if unattended_installed.rc == 0 else 'No' }}
+              Config file exists: {{ 'Yes' if unattended_config.stat.exists else 'No' }}
+              Auto-upgrades enabled: {{ 'Yes' if auto_upgrades_config.stat.exists else 'No' }}
+              
+              Status: {{ 'Already configured' if (unattended_config.stat.exists and auto_upgrades_config.stat.exists and unattended_installed.rc == 0) else 'Needs configuration' }}
+              ============================================================================
+
     - name: Update system packages
       when: hardening_update_packages | default(true)
       block:
@@ -100,6 +133,40 @@
             dest: /etc/apt/apt.conf.d/20auto-upgrades
           when: ansible_os_family == "Debian"
           ignore_errors: yes
+          register: auto_upgrades_result
+
+    - name: Verify auto-updates configuration
+      when: hardening_auto_updates | default(true) and ansible_os_family == "Debian"
+      block:
+        - name: Verify unattended-upgrades config file exists
+          stat:
+            path: /etc/apt/apt.conf.d/50unattended-upgrades
+          register: verify_unattended
+
+        - name: Verify auto-upgrades config file exists
+          stat:
+            path: /etc/apt/apt.conf.d/20auto-upgrades
+          register: verify_auto_upgrades
+
+        - name: Verify unattended-upgrades package is installed
+          command: dpkg -l | grep -q "^ii.*unattended-upgrades"
+          register: verify_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Auto-Updates Configuration
+              ============================================================================
+              
+              Unattended-upgrades installed: {{ '✅ Yes' if verify_installed.rc == 0 else '❌ No' }}
+              Config file exists: {{ '✅ Yes' if verify_unattended.stat.exists else '❌ No' }}
+              Auto-upgrades enabled: {{ '✅ Yes' if verify_auto_upgrades.stat.exists else '❌ No' }}
+              
+              {{ '✅ All checks passed!' if (verify_installed.rc == 0 and verify_unattended.stat.exists and verify_auto_upgrades.stat.exists) else '⚠️  Some checks failed - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

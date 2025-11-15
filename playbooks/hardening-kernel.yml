@@ -6,6 +6,32 @@
     - ../vars/hardening.local.yml
   
   tasks:
+    - name: Check current kernel parameters
+      when: hardening_harden_kernel | default(true)
+      block:
+        - name: Get current kernel parameter values
+          shell: |
+            echo "ip_forward=$(sysctl -n net.ipv4.ip_forward 2>/dev/null || echo 'unknown')"
+            echo "tcp_syncookies=$(sysctl -n net.ipv4.tcp_syncookies 2>/dev/null || echo 'unknown')"
+            echo "log_martians=$(sysctl -n net.ipv4.conf.all.log_martians 2>/dev/null || echo 'unknown')"
+          register: current_kernel_params
+          changed_when: false
+          failed_when: false
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Kernel Parameters Status
+              ============================================================================
+              
+              Current net.ipv4.ip_forward: {{ current_kernel_params.stdout | regex_search('ip_forward=([^\\n]+)', '\\1') | default('unknown') }}
+              Current net.ipv4.tcp_syncookies: {{ current_kernel_params.stdout | regex_search('tcp_syncookies=([^\\n]+)', '\\1') | default('unknown') }}
+              Current net.ipv4.conf.all.log_martians: {{ current_kernel_params.stdout | regex_search('log_martians=([^\\n]+)', '\\1') | default('unknown') }}
+              
+              Status: {{ 'Needs hardening' if (current_kernel_params.stdout | regex_search('ip_forward=([^\\n]+)', '\\1') | default('unknown') != '0') else 'May already be hardened' }}
+              ============================================================================
+
     - name: Configure kernel parameters
       when: hardening_harden_kernel | default(true)
       block:
@@ -34,6 +60,41 @@
             - { name: net.ipv6.conf.all.accept_source_route, value: '0' }
             - { name: net.ipv6.conf.default.accept_source_route, value: '0' }
           ignore_errors: yes
+
+    - name: Verify kernel parameters
+      when: hardening_harden_kernel | default(true)
+      block:
+        - name: Verify kernel parameter values
+          shell: |
+            echo "ip_forward=$(sysctl -n net.ipv4.ip_forward 2>/dev/null || echo 'unknown')"
+            echo "tcp_syncookies=$(sysctl -n net.ipv4.tcp_syncookies 2>/dev/null || echo 'unknown')"
+            echo "log_martians=$(sysctl -n net.ipv4.conf.all.log_martians 2>/dev/null || echo 'unknown')"
+            echo "send_redirects=$(sysctl -n net.ipv4.conf.all.send_redirects 2>/dev/null || echo 'unknown')"
+          register: verify_kernel_params
+          changed_when: false
+          failed_when: false
+
+        - name: Parse verified kernel parameters
+          set_fact:
+            verified_ip_forward: "{{ verify_kernel_params.stdout | regex_search('ip_forward=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_tcp_syncookies: "{{ verify_kernel_params.stdout | regex_search('tcp_syncookies=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_log_martians: "{{ verify_kernel_params.stdout | regex_search('log_martians=([^\\n]+)', '\\1') | default('unknown') }}"
+            verified_send_redirects: "{{ verify_kernel_params.stdout | regex_search('send_redirects=([^\\n]+)', '\\1') | default('unknown') }}"
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Kernel Parameters
+              ============================================================================
+              
+              net.ipv4.ip_forward: {{ verified_ip_forward }} (expected: 0) {{ '✅' if verified_ip_forward == '0' else '❌' }}
+              net.ipv4.tcp_syncookies: {{ verified_tcp_syncookies }} (expected: 1) {{ '✅' if verified_tcp_syncookies == '1' else '❌' }}
+              net.ipv4.conf.all.log_martians: {{ verified_log_martians }} (expected: 1) {{ '✅' if verified_log_martians == '1' else '❌' }}
+              net.ipv4.conf.all.send_redirects: {{ verified_send_redirects }} (expected: 0) {{ '✅' if verified_send_redirects == '0' else '❌' }}
+              
+              {{ '✅ All kernel parameters verified!' if (verified_ip_forward == '0' and verified_tcp_syncookies == '1' and verified_log_martians == '1' and verified_send_redirects == '0') else '⚠️  Some parameters may not match - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

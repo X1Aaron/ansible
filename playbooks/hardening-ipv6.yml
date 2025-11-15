@@ -6,6 +6,27 @@
     - ../vars/hardening.local.yml
   
   tasks:
+    - name: Check current IPv6 status
+      when: hardening_disable_ipv6 | default(false)
+      block:
+        - name: Get current IPv6 disable status
+          shell: sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null || echo "unknown"
+          register: current_ipv6_status
+          changed_when: false
+          failed_when: false
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: IPv6 Status
+              ============================================================================
+              
+              Current net.ipv6.conf.all.disable_ipv6: {{ current_ipv6_status.stdout | default('unknown') }}
+              
+              Status: {{ 'Already disabled' if current_ipv6_status.stdout == '1' else 'Needs disabling' }}
+              ============================================================================
+
     - name: Disable IPv6 if not needed
       when: hardening_disable_ipv6 | default(false)
       block:
@@ -17,6 +38,27 @@
             sysctl_set: yes
             reload: yes
           ignore_errors: yes
+
+    - name: Verify IPv6 configuration
+      when: hardening_disable_ipv6 | default(false)
+      block:
+        - name: Verify IPv6 is disabled
+          shell: sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null || echo "unknown"
+          register: verify_ipv6_status
+          changed_when: false
+          failed_when: false
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: IPv6 Configuration
+              ============================================================================
+              
+              net.ipv6.conf.all.disable_ipv6: {{ verify_ipv6_status.stdout | default('unknown') }} (expected: 1) {{ '✅' if verify_ipv6_status.stdout == '1' else '❌' }}
+              
+              {{ '✅ IPv6 disabled successfully!' if verify_ipv6_status.stdout == '1' else '⚠️  IPv6 may still be enabled - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:

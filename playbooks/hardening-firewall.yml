@@ -36,6 +36,57 @@
       set_fact:
         ansible_os_family: "{{ os_family_result.stdout }}"
 
+    - name: Check if firewall is already configured
+      when: hardening_configure_firewall | default(true) and ansible_os_family == "Debian"
+      block:
+        - name: Check if UFW is installed
+          command: dpkg -l | grep -q "^ii.*ufw" || echo "not_installed"
+          register: ufw_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Check UFW status
+          command: ufw status | head -1
+          register: ufw_status
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Check if SSH is allowed in UFW
+          command: ufw status | grep -E "22/tcp|OpenSSH" || echo "SSH_NOT_ALLOWED"
+          register: ufw_ssh_allowed
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Check if whitelist script exists
+          stat:
+            path: /usr/local/bin/ufw-ssh-whitelist-update.sh
+          register: whitelist_script_exists
+
+        - name: Check if whitelist timer is active
+          command: systemctl is-active ufw-ssh-whitelist-update.timer || echo "inactive"
+          register: whitelist_timer_status
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Display pre-check status
+          debug:
+            msg: |
+              ============================================================================
+              Pre-Check: Firewall Configuration Status
+              ============================================================================
+              
+              UFW installed: {{ 'Yes' if ufw_installed.rc == 0 else 'No' }}
+              UFW status: {{ ufw_status.stdout | default('Unknown') }}
+              SSH allowed: {{ 'Yes' if (ufw_ssh_allowed.rc == 0 and 'SSH_NOT_ALLOWED' not in ufw_ssh_allowed.stdout) else 'No' }}
+              Whitelist script: {{ 'Yes' if whitelist_script_exists.stat.exists else 'No' }}
+              Whitelist timer: {{ whitelist_timer_status.stdout | default('Unknown') }}
+              
+              Status: {{ 'Already configured' if (ufw_installed.rc == 0 and ufw_status.stdout is defined and 'Status: active' in ufw_status.stdout) else 'Needs configuration' }}
+              ============================================================================
+
     - name: Configure firewall
       when: hardening_configure_firewall | default(true)
       block:
@@ -348,6 +399,61 @@
             - hardening_ssh_allowed_sources is defined
             - hardening_ssh_allowed_sources | length > 0
             - hardening_ssh_whitelist_auto_update | default(true)
+
+    - name: Verify firewall configuration
+      when: hardening_configure_firewall | default(true) and ansible_os_family == "Debian"
+      block:
+        - name: Verify UFW is installed
+          command: dpkg -l | grep -q "^ii.*ufw"
+          register: verify_ufw_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Verify UFW status
+          command: ufw status verbose
+          register: verify_ufw_status
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Verify SSH is allowed in UFW
+          command: ufw status | grep -E "{{ current_ssh_port }}/tcp|OpenSSH" || echo "SSH_NOT_ALLOWED"
+          register: verify_ssh_allowed
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+
+        - name: Verify whitelist script exists (if configured)
+          stat:
+            path: /usr/local/bin/ufw-ssh-whitelist-update.sh
+          register: verify_whitelist_script
+          when: hardening_ssh_allowed_sources is defined and hardening_ssh_allowed_sources | length > 0
+
+        - name: Verify whitelist timer is active (if configured)
+          command: systemctl is-active ufw-ssh-whitelist-update.timer || echo "inactive"
+          register: verify_whitelist_timer
+          changed_when: false
+          failed_when: false
+          ignore_errors: yes
+          when: hardening_ssh_allowed_sources is defined and hardening_ssh_allowed_sources | length > 0
+
+        - name: Display verification results
+          debug:
+            msg: |
+              ============================================================================
+              Verification: Firewall Configuration
+              ============================================================================
+              
+              UFW installed: {{ '✅ Yes' if verify_ufw_installed.rc == 0 else '❌ No' }}
+              UFW enabled: {{ '✅ Yes' if (verify_ufw_status.rc == 0 and 'Status: active' in verify_ufw_status.stdout) else '❌ No' }}
+              SSH allowed (port {{ current_ssh_port }}): {{ '✅ Yes' if (verify_ssh_allowed.rc == 0 and 'SSH_NOT_ALLOWED' not in verify_ssh_allowed.stdout) else '❌ No' }}
+              {% if hardening_ssh_allowed_sources is defined and hardening_ssh_allowed_sources | length > 0 %}
+              Whitelist script: {{ '✅ Yes' if verify_whitelist_script.stat.exists else '❌ No' }}
+              Whitelist timer: {{ '✅ Active' if verify_whitelist_timer.stdout == 'active' else '❌ Inactive' }}
+              {% endif %}
+              
+              {{ '✅ All firewall checks passed!' if (verify_ufw_installed.rc == 0 and verify_ufw_status.rc == 0 and 'Status: active' in verify_ufw_status.stdout and verify_ssh_allowed.rc == 0 and 'SSH_NOT_ALLOWED' not in verify_ssh_allowed.stdout) else '⚠️  Some checks failed - review configuration' }}
+              ============================================================================
 
     - name: Display summary
       debug:
