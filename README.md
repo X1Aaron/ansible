@@ -45,6 +45,12 @@ This repository contains Ansible automation playbooks for server management task
 
 4. **That's it!** Your `.local.yml` file is git-ignored, so it won't be overwritten when you sync
 
+**Updating Your Config When New Options Are Added:**
+When the repository is updated with new options in `.example` files:
+1. Check what's new: Compare your `.local.yml` with the updated `.example` file
+2. Copy new options: Uncomment and add any new options you want from the `.example` file
+3. Your existing config stays intact - nothing gets overwritten automatically
+
 **Example:**
 ```yaml
 # In vars/users.local.yml (copied from .example), you'll see:
