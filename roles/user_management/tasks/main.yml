@@ -93,6 +93,7 @@
       when:
         - item.path | basename not in users_with_sudo
         - item.path | basename != 'root'
+        - item.path | basename in existing_users.ansible_facts.getent_passwd
         - (existing_users.ansible_facts.getent_passwd[item.path | basename][1] | int) >= 1000
       ignore_errors: yes
 
