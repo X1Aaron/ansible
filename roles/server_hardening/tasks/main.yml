@@ -263,17 +263,17 @@
         rule: allow
         port: "{{ current_ssh_port }}"
         proto: tcp
-        from: "{{ item.item }}"
+        from: "{{ item.stdout | trim }}"
         state: enabled
       loop: "{{ resolved_sources.results | default([]) }}"
       loop_control:
-        label: "SSH from {{ item.item }} ({{ item.stdout }})"
+        label: "SSH from {{ item.item }} -> {{ item.stdout | trim }}"
       when: 
         - ansible_os_family == "Debian"
         - hardening_ssh_allowed_sources is defined
         - hardening_ssh_allowed_sources | length > 0
         - item.stdout is defined
-        - item.stdout != ""
+        - item.stdout | trim != ""
       failed_when: false
 
     - name: Allow SSH service name as backup (if port rule didn't work)
