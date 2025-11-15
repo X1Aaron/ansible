@@ -49,6 +49,14 @@ if [ ! -f vars/proxmox.local.yml ]; then
     cp vars/proxmox.local.yml.example vars/proxmox.local.yml 2>/dev/null || echo "Proxmox config not needed, skipping..."
 fi
 
+# Create secrets.local.yml if it doesn't exist
+if [ ! -f vars/secrets.local.yml ]; then
+    echo "Creating vars/secrets.local.yml from example..."
+    cp vars/secrets.local.yml.example vars/secrets.local.yml
+    chmod 600 vars/secrets.local.yml
+    echo "⚠️  IMPORTANT: Edit vars/secrets.local.yml with your root password and other secrets!"
+fi
+
 echo ""
 echo "=========================================="
 echo "Setup complete!"
