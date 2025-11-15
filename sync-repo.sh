@@ -6,6 +6,13 @@ REPO_DIR="/opt/ansible"  # Update this path to your repository location
 
 if [ -d "$REPO_DIR" ]; then
     cd "$REPO_DIR"
+    
+    # Fix Git safe.directory issue (if repository is owned by different user)
+    if ! git config --global --get-all safe.directory | grep -q "^${REPO_DIR}$"; then
+        echo "Configuring Git safe.directory for $REPO_DIR..."
+        git config --global --add safe.directory "$REPO_DIR"
+    fi
+    
     git fetch origin
     
     # Check if there are uncommitted changes

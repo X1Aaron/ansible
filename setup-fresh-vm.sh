@@ -21,6 +21,13 @@ fi
 if [ -d "/opt/ansible/.git" ]; then
     echo "Repository already exists, syncing..."
     cd /opt/ansible
+    
+    # Fix Git safe.directory issue (if repository is owned by different user)
+    if ! git config --global --get-all safe.directory | grep -q "^/opt/ansible$"; then
+        echo "Configuring Git safe.directory for /opt/ansible..."
+        git config --global --add safe.directory "/opt/ansible"
+    fi
+    
     git fetch origin
     
     # Check if there are uncommitted changes
@@ -36,6 +43,13 @@ else
     sudo rm -rf /opt/ansible
     sudo git clone https://github.com/X1Aaron/ansible.git /opt/ansible
     sudo chown -R $USER:$USER /opt/ansible
+    
+    # Fix Git safe.directory issue
+    cd /opt/ansible
+    if ! git config --global --get-all safe.directory | grep -q "^/opt/ansible$"; then
+        echo "Configuring Git safe.directory for /opt/ansible..."
+        git config --global --add safe.directory "/opt/ansible"
+    fi
 fi
 
 # Create local config files from examples
