@@ -20,60 +20,59 @@
 # ============================================================================
 
 # General hardening options
-hardening_update_packages: true          # Update all system packages
-hardening_auto_updates: true             # Enable automatic security updates
-hardening_configure_firewall: true       # Configure firewall (UFW/firewalld)
-hardening_configure_fail2ban: true       # Install and configure fail2ban
-hardening_harden_kernel: true            # Harden kernel network parameters
-hardening_disable_services: true         # Disable unnecessary services
-hardening_configure_ntp: true           # Configure time synchronization
-hardening_set_file_permissions: true     # Set restrictive file permissions
-hardening_configure_audit: true         # Configure audit logging (auditd)
-# hardening_disable_ipv6: false           # Disable IPv6 (set to true if not needed)
+hardening_update_packages: true          # RECOMMENDED: Update all system packages (default: true)
+hardening_auto_updates: true             # RECOMMENDED: Enable automatic security updates (default: true)
+hardening_configure_firewall: true       # RECOMMENDED: Configure firewall (UFW/firewalld) (default: true)
+hardening_configure_fail2ban: true       # RECOMMENDED: Install and configure fail2ban (default: true)
+hardening_harden_kernel: true            # RECOMMENDED: Harden kernel network parameters (default: true)
+hardening_disable_services: true         # RECOMMENDED: Disable unnecessary services (default: true)
+hardening_configure_ntp: true           # RECOMMENDED: Configure time synchronization (default: true)
+hardening_set_file_permissions: true     # RECOMMENDED: Set restrictive file permissions (default: true)
+hardening_configure_audit: true         # RECOMMENDED: Configure audit logging (auditd) (default: true)
+# hardening_disable_ipv6: false           # OPTIONAL: Disable IPv6 (set to true if not needed, default: false)
 
 # SSH Hardening
-hardening_ssh_harden: true               # Enable SSH hardening
-hardening_ssh_permit_root_login: "no"    # Disable root login via SSH
-hardening_ssh_password_auth: "no"        # Disable password authentication (use keys only)
-hardening_ssh_pubkey_auth: "yes"         # Enable public key authentication
-hardening_ssh_x11_forwarding: "no"       # Disable X11 forwarding
-hardening_ssh_max_auth_tries: 3          # Maximum authentication attempts
-hardening_ssh_client_alive_interval: 300 # Client alive interval (seconds)
-hardening_ssh_client_alive_count_max: 2  # Client alive count max
-# hardening_ssh_port: 22                   # SSH port (change for security, e.g., 2222) - only uncomment if changing port
-hardening_ssh_config_backup: true        # Backup SSH config before changes
+hardening_ssh_harden: true               # RECOMMENDED: Enable SSH hardening (default: true)
+hardening_ssh_permit_root_login: "no"    # RECOMMENDED: Disable root login via SSH (default: "no")
+hardening_ssh_password_auth: "no"        # RECOMMENDED: Disable password authentication (use keys only) (default: "no")
+hardening_ssh_pubkey_auth: "yes"         # RECOMMENDED: Enable public key authentication (default: "yes")
+hardening_ssh_x11_forwarding: "no"       # RECOMMENDED: Disable X11 forwarding (default: "no")
+hardening_ssh_max_auth_tries: 3          # RECOMMENDED: Maximum authentication attempts (default: 3)
+hardening_ssh_client_alive_interval: 300 # RECOMMENDED: Client alive interval in seconds (default: 300)
+hardening_ssh_client_alive_count_max: 2  # RECOMMENDED: Client alive count max (default: 2)
+# hardening_ssh_port: 22                   # OPTIONAL: SSH port (only uncomment if changing from default 22, e.g., 2222)
+hardening_ssh_config_backup: true        # RECOMMENDED: Backup SSH config before changes (default: true)
 
-# Trusted Source Whitelist (recommended for security)
+# Trusted Source Whitelist
 # Whitelisted IPs are trusted sources and allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
 # If not specified or empty, only SSH will be allowed from anywhere (default UFW behavior)
 # SECURITY: Only whitelist IPs from trusted sources since they get access to ALL ports!
-hardening_ssh_allowed_sources:
-  # - "192.168.1.0/24"        # Allow all ports from entire subnet (trusted network)
-  # - "10.0.0.5"              # Allow all ports from specific IP (trusted host)
-  # - "2001:db8::/32"         # Allow all ports from IPv6 subnet
-  # - "office.example.com"    # Hostname (resolved to ALL IPs, updated every minute)
-  # - "vpn.company.com"       # Hostname (resolved to ALL IPs, updated every minute)
-  # Add your trusted IPs/hostnames above (uncomment and modify)
+hardening_ssh_allowed_sources: []  # RECOMMENDED: List of trusted IPs/hostnames (add your IPs here!)
+  # - "192.168.1.0/24"        # Example: Allow all ports from entire subnet (trusted network)
+  # - "10.0.0.5"              # Example: Allow all ports from specific IP (trusted host)
+  # - "2001:db8::/32"         # Example: Allow all ports from IPv6 subnet
+  # - "office.example.com"    # Example: Hostname (resolved to ALL IPs, updated every minute)
+  # - "vpn.company.com"       # Example: Hostname (resolved to ALL IPs, updated every minute)
 
-# Whitelist auto-update settings (only needed if using hostnames)
-hardening_ssh_whitelist_auto_update: true  # Auto-update hostname IPs (default: true)
-hardening_ssh_whitelist_update_interval: "1min"  # Update interval (default: 1min, examples: "30s", "1min", "5min")
+# Whitelist auto-update settings
+hardening_ssh_whitelist_auto_update: true  # OPTIONAL: Auto-update hostname IPs (default: true, only needed if using hostnames)
+hardening_ssh_whitelist_update_interval: "1min"  # OPTIONAL: Update interval (default: "1min", examples: "30s", "1min", "5min")
 # Note: Hostnames are resolved to ALL IP addresses (not just the first one).
 # If auto-update is enabled, hostnames are re-resolved at the specified interval to handle IP changes.
 
 # Firewall Configuration
-hardening_firewall_allowed_services:     # Services to allow through firewall
+hardening_firewall_allowed_services:     # RECOMMENDED: Services to allow through firewall (default: ['OpenSSH'])
   - OpenSSH
-  # - "{{ hardening_ssh_port | default(22) }}/tcp"  # If you changed SSH port
+  # - "{{ hardening_ssh_port | default(22) }}/tcp"  # OPTIONAL: Add if you changed SSH port
 
 # Fail2ban Configuration
-hardening_fail2ban_bantime: 3600         # Ban time in seconds (1 hour)
-hardening_fail2ban_findtime: 600         # Find time window in seconds (10 minutes)
-hardening_fail2ban_maxretry: 5           # Maximum retries before ban
-hardening_fail2ban_email: "root@localhost"  # Email for notifications
+hardening_fail2ban_bantime: 3600         # RECOMMENDED: Ban time in seconds (default: 3600 = 1 hour)
+hardening_fail2ban_findtime: 600         # RECOMMENDED: Find time window in seconds (default: 600 = 10 minutes)
+hardening_fail2ban_maxretry: 5           # RECOMMENDED: Maximum retries before ban (default: 5)
+hardening_fail2ban_email: "root@localhost"  # RECOMMENDED: Email for notifications (default: "root@localhost")
 
 # Services to disable
-hardening_disabled_services:
+hardening_disabled_services:             # RECOMMENDED: List of services to disable (default: ['telnet', 'rsh', 'rlogin', 'rexec', 'nis'])
   - telnet
   - rsh
   - rlogin
@@ -82,7 +81,7 @@ hardening_disabled_services:
   # Add more services you want to disable
 
 # File permissions (path: mode)
-hardening_file_permissions:
+hardening_file_permissions:              # RECOMMENDED: File permissions to set (has defaults for /etc/passwd, /etc/shadow, /etc/group)
   - { path: '/etc/passwd', mode: '0644' }
   - { path: '/etc/shadow', mode: '0640' }
   - { path: '/etc/group', mode: '0644' }

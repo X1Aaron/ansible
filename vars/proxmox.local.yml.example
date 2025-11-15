@@ -21,26 +21,25 @@
 # Proxmox release version
 # Options: 'trixie' (Debian 13 - default), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
 # If this file doesn't exist or this is not set, defaults to 'trixie' (Debian 13)
-proxmox_release: trixie
+proxmox_release: trixie  # OPTIONAL: Proxmox release version (default: 'trixie' for Debian 13)
 
 # System update before installation
-proxmox_update_system: true
+proxmox_update_system: true  # RECOMMENDED: Update system packages before installation (default: true)
 
 # Install Proxmox VE packages
-proxmox_install_packages: true
+proxmox_install_packages: true  # REQUIRED: Install Proxmox VE packages (default: true, set to false to skip installation)
 
 # Configure Proxmox after installation
-proxmox_configure: true
+proxmox_configure: true  # RECOMMENDED: Configure Proxmox after installation (default: true)
 
-# Hostname for the Proxmox server (optional - only uncomment if you want to set a specific hostname)
-# proxmox_hostname: pve1.example.com
+# Hostname for the Proxmox server
+# proxmox_hostname: pve1.example.com  # OPTIONAL: Set specific hostname (only uncomment if you want to set a custom hostname)
 
 # Reboot after installation (if required)
-proxmox_reboot_after_install: true
+proxmox_reboot_after_install: true  # RECOMMENDED: Reboot after installation if required (default: true)
 
-# Network configuration (optional)
-# Uncomment and configure if you need to set up network interfaces
-# proxmox_network_config:
+# Network configuration
+# proxmox_network_config:  # OPTIONAL: Network interface configuration (only uncomment if you need to configure network)
 #   - interface: enp0s3
 #     method: static
 #     address: 192.168.1.100
