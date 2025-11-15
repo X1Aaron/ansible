@@ -6,7 +6,7 @@
 # This file is NOT tracked in git and will never be overwritten.
 # 
 # To get started, copy this file:
-#   cp vars/users.local.yml.example vars/users.local.yml
+#   cp examples/vars/users.local.yml.example vars/users.local.yml
 #   nano vars/users.local.yml
 
 # Users - The variables file is the source of truth
