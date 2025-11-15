@@ -1,0 +1,14 @@
+---
+- name: Server Hardening Playbook
+  hosts: localhost
+  become: yes
+  vars_files:
+    # Load your hardening configuration from this file
+    # This file is NOT in git - it stays on your server only
+    # Create it: cp vars/hardening.local.yml.example vars/hardening.local.yml
+    # Then edit it with your server-specific hardening settings
+    - ../vars/hardening.local.yml
+  
+  roles:
+    - role: server_hardening
+

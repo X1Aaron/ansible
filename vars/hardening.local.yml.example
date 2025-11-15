@@ -1,0 +1,62 @@
+---
+# Server Hardening Configuration
+# 
+# This is YOUR file - edit this with your server-specific hardening settings!
+# 
+# This file is NOT tracked in git and will never be overwritten.
+# 
+# To get started, copy this file:
+#   cp vars/hardening.local.yml.example vars/hardening.local.yml
+#   nano vars/hardening.local.yml
+
+# General hardening options
+hardening_update_packages: true          # Update all system packages
+hardening_auto_updates: true             # Enable automatic security updates
+hardening_configure_firewall: true       # Configure firewall (UFW/firewalld)
+hardening_configure_fail2ban: true       # Install and configure fail2ban
+hardening_harden_kernel: true            # Harden kernel network parameters
+hardening_disable_services: true         # Disable unnecessary services
+hardening_configure_ntp: true           # Configure time synchronization
+hardening_set_file_permissions: true     # Set restrictive file permissions
+hardening_configure_audit: true         # Configure audit logging (auditd)
+hardening_disable_ipv6: false           # Disable IPv6 (set to true if not needed)
+
+# SSH Hardening
+hardening_ssh_harden: true               # Enable SSH hardening
+hardening_ssh_permit_root_login: "no"    # Disable root login via SSH
+hardening_ssh_password_auth: "no"        # Disable password authentication (use keys only)
+hardening_ssh_pubkey_auth: "yes"         # Enable public key authentication
+hardening_ssh_x11_forwarding: "no"       # Disable X11 forwarding
+hardening_ssh_max_auth_tries: 3          # Maximum authentication attempts
+hardening_ssh_client_alive_interval: 300 # Client alive interval (seconds)
+hardening_ssh_client_alive_count_max: 2  # Client alive count max
+hardening_ssh_port: 22                   # SSH port (change for security, e.g., 2222)
+hardening_ssh_config_backup: true        # Backup SSH config before changes
+
+# Firewall Configuration
+hardening_firewall_allowed_services:     # Services to allow through firewall
+  - OpenSSH
+  # - "{{ hardening_ssh_port | default(22) }}/tcp"  # If you changed SSH port
+
+# Fail2ban Configuration
+hardening_fail2ban_bantime: 3600         # Ban time in seconds (1 hour)
+hardening_fail2ban_findtime: 600         # Find time window in seconds (10 minutes)
+hardening_fail2ban_maxretry: 5           # Maximum retries before ban
+hardening_fail2ban_email: "root@localhost"  # Email for notifications
+
+# Services to disable
+hardening_disabled_services:
+  - telnet
+  - rsh
+  - rlogin
+  - rexec
+  - nis
+  # Add more services you want to disable
+
+# File permissions (path: mode)
+hardening_file_permissions:
+  - { path: '/etc/passwd', mode: '0644' }
+  - { path: '/etc/shadow', mode: '0640' }
+  - { path: '/etc/group', mode: '0644' }
+  # Add more files as needed
+

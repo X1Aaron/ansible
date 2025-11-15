@@ -182,4 +182,66 @@ The key is automatically added to `~/.ssh/authorized_keys`.
 
 ---
 
+### Server Hardening
+
+Automate server security hardening using industry best practices.
+
+#### Quick Start
+
+1. **Create your hardening configuration:**
+   ```bash
+   cp vars/hardening.local.yml.example vars/hardening.local.yml
+   nano vars/hardening.local.yml
+   ```
+
+2. **Run the playbook:**
+   ```bash
+   ansible-playbook playbooks/server-hardening.yml
+   ```
+
+#### What It Does
+
+The hardening playbook implements security best practices:
+
+- **SSH Hardening:** Disables root login, password auth (keys only), configures timeouts
+- **Firewall:** Configures UFW (Debian/Ubuntu) or firewalld (RHEL/CentOS)
+- **Fail2ban:** Protects against brute force attacks
+- **System Updates:** Updates packages and configures automatic security updates
+- **Kernel Hardening:** Sets secure network kernel parameters
+- **Service Management:** Disables unnecessary/insecure services
+- **Time Sync:** Configures NTP/chrony for accurate time
+- **File Permissions:** Sets restrictive permissions on sensitive files
+
+#### Configuration
+
+Edit `vars/hardening.local.yml` to customize:
+
+```yaml
+# SSH Hardening
+hardening_ssh_permit_root_login: "no"
+hardening_ssh_password_auth: "no"
+hardening_ssh_port: 22  # Change to non-standard port for security
+
+# Firewall
+hardening_firewall_allowed_services:
+  - OpenSSH
+
+# Fail2ban
+hardening_fail2ban_maxretry: 5
+hardening_fail2ban_bantime: 3600
+```
+
+All options are enabled by default with secure settings. Disable any section by setting its option to `false`.
+
+#### Security Features
+
+- **SSH:** Root login disabled, password auth disabled, key-only access
+- **Firewall:** Default deny incoming, allow outgoing
+- **Fail2ban:** Automatic IP banning for failed login attempts
+- **Kernel:** IP forwarding disabled, source routing disabled, SYN cookies enabled
+- **Updates:** Automatic security updates enabled
+- **Services:** Insecure services (telnet, rsh, etc.) disabled
+
+---
+
 *More projects coming soon...*
