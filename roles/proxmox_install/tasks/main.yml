@@ -235,6 +235,17 @@
         - proxmox_package_check.stdout_lines | length == 0
         - proxmox_madison_check.rc != 0 or proxmox_madison_check.stdout_lines | length == 0
 
+    - name: Pre-configure postfix to avoid interactive prompts
+      debconf:
+        name: postfix
+        question: "{{ item.question }}"
+        value: "{{ item.value }}"
+        vtype: "{{ item.vtype | default('string') }}"
+      loop:
+        - { question: 'postfix/main_mailer_type', value: 'Local only', vtype: 'select' }
+        - { question: 'postfix/mailname', value: '{{ proxmox_hostname | default(inventory_hostname) }}', vtype: 'string' }
+      ignore_errors: yes
+
     - name: Install Proxmox VE default kernel (required first step per official docs)
       apt:
         name: proxmox-default-kernel
@@ -249,6 +260,8 @@
           - open-iscsi
           - chrony
         state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
       ignore_errors: yes
 
     - name: Find Debian kernel packages
