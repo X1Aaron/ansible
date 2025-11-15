@@ -11,9 +11,11 @@
 #   2. Edit the COPY: nano vars/hardening.local.yml
 #   3. The .local.yml file is git-ignored and will NOT be overwritten
 # 
-# Then uncomment and modify the examples below to configure server hardening.
-# 
 # ⚠️  IMPORTANT: Add your IP to hardening_ssh_allowed_sources before running firewall hardening!
+# 
+# Whitelisted IPs are trusted sources and allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
+# If not specified or empty, only SSH will be allowed from anywhere (default UFW behavior)
+# SECURITY: Only whitelist IPs from trusted sources since they get access to ALL ports!
 # 
 # ============================================================================
 # END OF HEADER - YOU CAN DELETE EVERYTHING ABOVE THIS LINE AFTER COPYING
@@ -44,16 +46,12 @@ hardening_ssh_client_alive_count_max: 2  # RECOMMENDED: Client alive count max (
 hardening_ssh_config_backup: true        # RECOMMENDED: Backup SSH config before changes (default: true)
 
 # Trusted Source Whitelist
-# Whitelisted IPs are trusted sources and allowed access to ALL ports (SSH, Proxmox, HTTP, HTTPS, etc.)
-# If not specified or empty, only SSH will be allowed from anywhere (default UFW behavior)
-# SECURITY: Only whitelist IPs from trusted sources since they get access to ALL ports!
-# Examples:
-#   - "192.168.1.0/24"        # Allow all ports from entire subnet (trusted network)
-#   - "10.0.0.5"              # Allow all ports from specific IP (trusted host)
-#   - "2001:db8::/32"         # Allow all ports from IPv6 subnet
-#   - "office.example.com"    # Hostname (resolved to ALL IPs, updated every minute)
-#   - "vpn.company.com"       # Hostname (resolved to ALL IPs, updated every minute)
-hardening_ssh_allowed_sources: []  # RECOMMENDED: List of trusted IPs/hostnames (add your IPs above, uncomment examples or add your own)
+hardening_ssh_allowed_sources: []  # RECOMMENDED: List of trusted IPs/hostnames (add your IPs here)
+  # - "192.168.1.0/24"        # Example: Allow all ports from entire subnet (trusted network)
+  # - "10.0.0.5"              # Example: Allow all ports from specific IP (trusted host)
+  # - "2001:db8::/32"         # Example: Allow all ports from IPv6 subnet
+  # - "office.example.com"    # Example: Hostname (resolved to ALL IPs, updated every minute)
+  # - "vpn.company.com"       # Example: Hostname (resolved to ALL IPs, updated every minute)
 
 # Whitelist auto-update settings
 hardening_ssh_whitelist_auto_update: true  # OPTIONAL: Auto-update hostname IPs (default: true, only needed if using hostnames)

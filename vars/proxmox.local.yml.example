@@ -12,15 +12,14 @@
 #   3. The .local.yml file is git-ignored and will NOT be overwritten
 # 
 # This file is OPTIONAL - Proxmox installation will use defaults if not configured.
-# Then uncomment and modify the examples below to configure Proxmox installation.
+# 
+# Proxmox release options: 'trixie' (Debian 13 - default), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
+# If this file doesn't exist or release is not set, defaults to 'trixie' (Debian 13)
 # 
 # ============================================================================
 # END OF HEADER - YOU CAN DELETE EVERYTHING ABOVE THIS LINE AFTER COPYING
 # ============================================================================
 
-# Proxmox release version
-# Options: 'trixie' (Debian 13 - default), 'bookworm' (Debian 12), 'bullseye' (Debian 11)
-# If this file doesn't exist or this is not set, defaults to 'trixie' (Debian 13)
 proxmox_release: trixie  # OPTIONAL: Proxmox release version (default: 'trixie' for Debian 13)
 
 # System update before installation
