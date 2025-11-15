@@ -228,17 +228,31 @@
         current_ssh_port: "{{ (ssh_port_result.stdout | default('22')) | int }}"
       when: ansible_os_family == "Debian"
 
-    - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL)
+    - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL) - from anywhere
       ufw:
         rule: allow
         port: "{{ current_ssh_port }}"
         proto: tcp
-        {{ 'from: ' + item if item is defined else '' }}
         state: enabled
-      loop: "{{ hardening_ssh_allowed_sources | default(['']) | list }}"
+      when: 
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is not defined or hardening_ssh_allowed_sources | length == 0
+      failed_when: false
+
+    - name: Ensure SSH is allowed in UFW BEFORE enabling firewall (CRITICAL) - from whitelist
+      ufw:
+        rule: allow
+        port: "{{ current_ssh_port }}"
+        proto: tcp
+        from: "{{ item }}"
+        state: enabled
+      loop: "{{ hardening_ssh_allowed_sources }}"
       loop_control:
-        label: "{{ 'SSH from ' + item if item != '' else 'SSH from anywhere' }}"
-      when: ansible_os_family == "Debian"
+        label: "SSH from {{ item }}"
+      when: 
+        - ansible_os_family == "Debian"
+        - hardening_ssh_allowed_sources is defined
+        - hardening_ssh_allowed_sources | length > 0
       failed_when: false
 
     - name: Allow SSH service name as backup (if port rule didn't work)

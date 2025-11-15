@@ -33,6 +33,14 @@ hardening_ssh_client_alive_count_max: 2  # Client alive count max
 hardening_ssh_port: 22                   # SSH port (change for security, e.g., 2222)
 hardening_ssh_config_backup: true        # Backup SSH config before changes
 
+# SSH Source Whitelist (optional - leave undefined or empty to allow from anywhere)
+# Examples:
+# hardening_ssh_allowed_sources:
+#   - "192.168.1.0/24"        # Allow from entire subnet
+#   - "10.0.0.5"              # Allow from specific IP
+#   - "2001:db8::/32"         # Allow from IPv6 subnet
+# If not specified or empty, SSH will be allowed from anywhere
+
 # Firewall Configuration
 hardening_firewall_allowed_services:     # Services to allow through firewall
   - OpenSSH
