@@ -145,70 +145,12 @@
           ============================================================================
       when: needs_fix | default(false) | bool
 
-    - name: Read current /etc/hosts file
-      slurp:
-        src: /etc/hosts
-      register: hosts_file
-      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
-
-    - name: Extract existing hostname entry line (if exists) to preserve aliases
-      set_fact:
-        hosts_file_text: "{{ hosts_file.content | b64decode | default('') }}"
-      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
-
-    - name: Find hostname entry in /etc/hosts
-      set_fact:
-        hostname_entry_line: "{{ hosts_file_text | default('') | regex_search('^[^#]*\\s+' + system_hostname.stdout + '(\\s|$)', multiline=True) | default('') }}"
-      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
-
-    - name: Check if hostname entry exists
-      set_fact:
-        hostname_entry_exists: "{{ hostname_entry_line | default('') | length > 0 }}"
-      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
-
-    - name: Extract aliases from existing entry (everything after hostname)
-      set_fact:
-        hostname_aliases: "{{ hostname_entry_line | regex_replace('^[^\\s]+\\s+' + system_hostname.stdout + '\\s*(.*)$', '\\1') | trim }}"
-      when:
-        - needs_fix | default(false) | bool
-        - detected_ip | default('') | length > 0
-        - hostname_entry_exists | default(false) | bool
-
-    - name: Display hostname entry status
-      debug:
-        msg: |
-          ============================================================================
-          Hostname Entry Status in /etc/hosts
-          ============================================================================
-          Hostname entry exists: {{ '✅ Yes' if hostname_entry_exists | default(false) else '❌ No' }}
-          {% if hostname_entry_exists | default(false) %}
-          Current entry: {{ hostname_entry_line | default('Not found') }}
-          {% if hostname_aliases is defined and hostname_aliases | length > 0 %}
-          Aliases to preserve: {{ hostname_aliases }}
-          {% endif %}
-          {% endif %}
-          Will update IP to: {{ detected_ip }}
-          New entry will be: {{ detected_ip }}  {{ system_hostname.stdout }}{{ ' ' + hostname_aliases if (hostname_aliases is defined and hostname_aliases | length > 0) else '' }}
-          ============================================================================
-      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
-
-    - name: Remove all existing hostname entries from /etc/hosts (to ensure single entry)
-      lineinfile:
+    - name: Replace loopback IP (127.x.x.x) with detected IP for hostname
+      replace:
         path: /etc/hosts
-        regexp: '^\s*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s+.*{{ system_hostname.stdout }}(\s|$)'
-        state: absent
+        regexp: '^(\s*)127\.[0-9]+\.[0-9]+\.[0-9]+(\s+.*{{ system_hostname.stdout }}.*)$'
+        replace: '\1{{ detected_ip }}\2'
         backup: yes
-      when:
-        - needs_fix | default(false) | bool
-        - detected_ip | default('') | length > 0
-
-    - name: Add single hostname entry with detected IP (preserving aliases if they existed)
-      lineinfile:
-        path: /etc/hosts
-        line: "{{ detected_ip }}  {{ system_hostname.stdout }}{{ ' ' + hostname_aliases if (hostname_aliases is defined and hostname_aliases | length > 0) else '' }}"
-        state: present
-        backup: yes
-        insertafter: '^127\.0\.0\.1'
       when:
         - needs_fix | default(false) | bool
         - detected_ip | default('') | length > 0
