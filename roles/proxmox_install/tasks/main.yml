@@ -476,12 +476,12 @@
           register: dhclient_profile
           when: apparmor_check.rc == 0
 
-        - name: Fix dhclient AppArmor profile
-          lineinfile:
+        - name: Fix dhclient AppArmor profile - add unix socket permission
+          blockinfile:
             path: /etc/apparmor.d/usr.sbin.dhclient
-            regexp: '^\s*network\s+unix\s+create,'
-            line: '  network unix create,'
-            state: present
+            marker: "# {mark} ANSIBLE MANAGED BLOCK - Allow unix socket creation"
+            block: |
+              network unix create type=dgram,
             insertafter: '^\s*network\s+inet\s+'
             backup: yes
           when:
