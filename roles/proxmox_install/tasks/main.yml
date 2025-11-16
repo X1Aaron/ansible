@@ -23,10 +23,30 @@
       changed_when: false
       failed_when: false
 
+    - name: Display OS detection results
+      debug:
+        msg: |
+          ============================================================================
+          OS Detection Results
+          ============================================================================
+          Raw output: {{ os_info.stdout }}
+          Exit code: {{ os_info.rc }}
+          ============================================================================
+
     - name: Set OS facts
       set_fact:
         ansible_os_family: "{{ 'Debian' if 'debian' in os_info.stdout else 'Unknown' }}"
         debian_version: "{{ os_info.stdout.split('|')[1] }}"
+
+    - name: Display OS facts
+      debug:
+        msg: |
+          ============================================================================
+          OS Facts
+          ============================================================================
+          OS Family: {{ ansible_os_family }}
+          Debian Version: {{ debian_version }}
+          ============================================================================
 
 - name: Verify Debian-based system
   fail:
@@ -229,11 +249,37 @@
       {%- else -%}{{ proxmox_release | default('trixie') }}
       {%- endif -%}
 
+- name: Display Proxmox release mapping
+  debug:
+    msg: |
+      ============================================================================
+      Proxmox Release Mapping
+      ============================================================================
+      Debian Version: {{ debian_version }}
+      Mapped Proxmox Release: {{ proxmox_release_mapped }}
+      Configured Release (if set): {{ proxmox_release | default('not set - using default') }}
+      ============================================================================
+
 - name: Check if Proxmox is already installed
   command: pveversion
   register: proxmox_installed
   changed_when: false
   failed_when: false
+
+- name: Display Proxmox installation status
+  debug:
+    msg: |
+      ============================================================================
+      Proxmox Installation Check
+      ============================================================================
+      Proxmox installed: {{ '✅ Yes' if proxmox_installed.rc == 0 else '❌ No' }}
+      {% if proxmox_installed.rc == 0 %}
+      Version: {{ proxmox_installed.stdout }}
+      {% else %}
+      Exit code: {{ proxmox_installed.rc }}
+      Error: {{ proxmox_installed.stderr | default('Not installed') }}
+      {% endif %}
+      ============================================================================
 
 # ============================================================================
 # STEP 4: Pre-configure packages for non-interactive installation
@@ -359,11 +405,36 @@
         mode: '0755'
       when: not gpg_key_exists.stat.exists
 
+    - name: Display GPG key status
+      debug:
+        msg: |
+          ============================================================================
+          Proxmox GPG Key Status
+          ============================================================================
+          Key exists: {{ '✅ Yes' if gpg_key_exists.stat.exists else '❌ No' }}
+          Key path: /usr/share/keyrings/proxmox-archive-keyring.gpg
+          {% if not gpg_key_exists.stat.exists %}
+          Will download from: https://enterprise.proxmox.com/debian/proxmox-archive-keyring-{{ proxmox_release_mapped }}.gpg
+          {% endif %}
+          ============================================================================
+
     - name: Download Proxmox GPG key
       get_url:
         url: "https://enterprise.proxmox.com/debian/proxmox-archive-keyring-{{ proxmox_release_mapped }}.gpg"
         dest: /usr/share/keyrings/proxmox-archive-keyring.gpg
         mode: '0644'
+      register: gpg_key_download
+      when: not gpg_key_exists.stat.exists
+
+    - name: Display GPG key download result
+      debug:
+        msg: |
+          ============================================================================
+          GPG Key Download Result
+          ============================================================================
+          Status: {{ '✅ Downloaded' if gpg_key_download.changed | default(false) else 'ℹ️  Already exists' }}
+          File size: {{ gpg_key_download.size | default('unknown') }} bytes
+          ============================================================================
       when: not gpg_key_exists.stat.exists
 
     - name: Check if repository already configured correctly
@@ -378,6 +449,21 @@
       when: repo_file_exists.stat.exists
       failed_when: false
 
+    - name: Display repository configuration status
+      debug:
+        msg: |
+          ============================================================================
+          Proxmox Repository Configuration Status
+          ============================================================================
+          Repository file exists: {{ '✅ Yes' if repo_file_exists.stat.exists else '❌ No' }}
+          Repository file path: /etc/apt/sources.list.d/pve-install-repo.sources
+          {% if repo_file_exists.stat.exists %}
+          Current content (first 10 lines):
+          {{ (existing_repo_config.content | b64decode | default(''))[:500] }}
+          {% endif %}
+          Will configure: {{ 'Yes' if (not repo_file_exists.stat.exists) or (existing_repo_config.content | b64decode | default('') | regex_search('Suites:\s*' + proxmox_release_mapped) is not defined) or (existing_repo_config.content | b64decode | default('') | regex_search('Components:\s*pve-no-subscription') is not defined) else 'No (already configured correctly)' }}
+          ============================================================================
+
     - name: Add Proxmox repository (deb822 format)
       copy:
         content: |
@@ -388,10 +474,22 @@
           Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
         dest: /etc/apt/sources.list.d/pve-install-repo.sources
         mode: '0644'
+      register: repo_file_created
       when: >
         (not repo_file_exists.stat.exists) or
         (existing_repo_config.content | b64decode | default('') | regex_search('Suites:\s*' + proxmox_release_mapped) is not defined) or
         (existing_repo_config.content | b64decode | default('') | regex_search('Components:\s*pve-no-subscription') is not defined)
+
+    - name: Display repository file creation result
+      debug:
+        msg: |
+          ============================================================================
+          Repository File Creation Result
+          ============================================================================
+          Status: {{ '✅ Created/Updated' if repo_file_created.changed | default(false) else 'ℹ️  No change needed' }}
+          File: /etc/apt/sources.list.d/pve-install-repo.sources
+          ============================================================================
+      when: repo_file_created.changed is defined
 
     - name: Update apt cache with Proxmox repository
       apt:
@@ -412,12 +510,40 @@
       changed_when: false
       failed_when: false
 
+    - name: Display Proxmox package availability check
+      debug:
+        msg: |
+          ============================================================================
+          Proxmox Package Availability Check
+          ============================================================================
+          Command: apt-cache madison proxmox-ve
+          Exit code: {{ proxmox_available.rc }}
+          Packages found: {{ proxmox_available.stdout_lines | length }}
+          {% if proxmox_available.rc == 0 and proxmox_available.stdout_lines | length > 0 %}
+          Available packages:
+          {{ proxmox_available.stdout | default('No output') }}
+          {% else %}
+          ⚠️  No packages found or command failed!
+          {% endif %}
+          ============================================================================
+
     - name: Fail if Proxmox packages not available
       fail:
         msg: |
+          ============================================================================
           Proxmox packages not found in repository!
-          Debian: {{ debian_version }} -> Proxmox: {{ proxmox_release_mapped }}
-          Run: apt update && apt-cache search proxmox-ve
+          ============================================================================
+          Debian Version: {{ debian_version }}
+          Proxmox Release: {{ proxmox_release_mapped }}
+          Repository: http://download.proxmox.com/debian/pve
+          Suite: {{ proxmox_release_mapped }}
+          
+          Troubleshooting:
+          1. Check repository configuration: cat /etc/apt/sources.list.d/pve-install-repo.sources
+          2. Update apt cache: apt update
+          3. Search for packages: apt-cache search proxmox-ve
+          4. Check network connectivity
+          ============================================================================
       when: proxmox_available.rc != 0 or proxmox_available.stdout_lines | length == 0
 
 # ============================================================================
@@ -448,11 +574,39 @@
         state: present
       register: kernel_install
 
+    - name: Display kernel installation details
+      debug:
+        msg: |
+          ============================================================================
+          Proxmox Kernel Installation Details
+          ============================================================================
+          Package: proxmox-default-kernel
+          Status: {{ '✅ Installed' if kernel_install.changed else 'ℹ️  Already installed' }}
+          Changed: {{ kernel_install.changed | default(false) }}
+          {% if kernel_install.changed %}
+          Installing kernel... This may take a few minutes.
+          {% endif %}
+          ============================================================================
+
     - name: Configure kernel package
       command: dpkg --configure -a
       register: kernel_configure
       changed_when: kernel_configure.rc == 0
       failed_when: false
+      when: kernel_install.changed | default(false) | bool
+
+    - name: Display kernel configuration result
+      debug:
+        msg: |
+          ============================================================================
+          Kernel Package Configuration Result
+          ============================================================================
+          Exit code: {{ kernel_configure.rc | default('N/A') }}
+          Status: {{ '✅ Configured' if kernel_configure.rc | default(1) == 0 else '⚠️  Configuration may have issues' }}
+          {% if kernel_configure.stdout is defined %}
+          Output: {{ kernel_configure.stdout[:200] }}
+          {% endif %}
+          ============================================================================
       when: kernel_install.changed | default(false) | bool
 
     - name: Display kernel installation status
@@ -494,11 +648,44 @@
         state: present
       register: proxmox_ve_install
 
+    - name: Display proxmox-ve installation details
+      debug:
+        msg: |
+          ============================================================================
+          proxmox-ve Package Installation Details
+          ============================================================================
+          Package: proxmox-ve
+          Status: {{ '✅ Installing...' if proxmox_ve_install.changed else 'ℹ️  Already installed' }}
+          Changed: {{ proxmox_ve_install.changed | default(false) }}
+          {% if proxmox_ve_install.changed %}
+          ⏳ This is a large package. Installation may take 10-20 minutes.
+          {% endif %}
+          ============================================================================
+
     - name: Configure proxmox-ve package
       command: dpkg --configure -a
       register: proxmox_ve_configure
       changed_when: proxmox_ve_configure.rc == 0
       failed_when: false
+      when: proxmox_ve_install.changed | default(false) | bool
+
+    - name: Display proxmox-ve configuration result
+      debug:
+        msg: |
+          ============================================================================
+          proxmox-ve Package Configuration Result
+          ============================================================================
+          Exit code: {{ proxmox_ve_configure.rc | default('N/A') }}
+          Status: {{ '✅ Configured' if proxmox_ve_configure.rc | default(1) == 0 else '⚠️  Configuration may have issues' }}
+          {% if proxmox_ve_configure.stdout is defined and proxmox_ve_configure.stdout | length > 0 %}
+          Configuration output (first 500 chars):
+          {{ proxmox_ve_configure.stdout[:500] }}
+          {% endif %}
+          {% if proxmox_ve_configure.stderr is defined and proxmox_ve_configure.stderr | length > 0 %}
+          Configuration errors/warnings:
+          {{ proxmox_ve_configure.stderr[:500] }}
+          {% endif %}
+          ============================================================================
       when: proxmox_ve_install.changed | default(false) | bool
 
     - name: Display proxmox-ve installation status
@@ -511,11 +698,36 @@
         state: present
       register: postfix_install
 
+    - name: Display postfix installation details
+      debug:
+        msg: |
+          ============================================================================
+          postfix Package Installation Details
+          ============================================================================
+          Package: postfix
+          Status: {{ '✅ Installing...' if postfix_install.changed else 'ℹ️  Already installed' }}
+          Changed: {{ postfix_install.changed | default(false) }}
+          ============================================================================
+
     - name: Configure postfix package
       command: dpkg --configure -a
       register: postfix_configure
       changed_when: postfix_configure.rc == 0
       failed_when: false
+      when: postfix_install.changed | default(false) | bool
+
+    - name: Display postfix configuration result
+      debug:
+        msg: |
+          ============================================================================
+          postfix Package Configuration Result
+          ============================================================================
+          Exit code: {{ postfix_configure.rc | default('N/A') }}
+          Status: {{ '✅ Configured' if postfix_configure.rc | default(1) == 0 else '⚠️  Configuration may have issues' }}
+          {% if postfix_configure.stdout is defined and postfix_configure.stdout | length > 0 %}
+          Configuration output: {{ postfix_configure.stdout[:300] }}
+          {% endif %}
+          ============================================================================
       when: postfix_install.changed | default(false) | bool
 
     - name: Display postfix installation status
@@ -528,11 +740,36 @@
         state: present
       register: open_iscsi_install
 
+    - name: Display open-iscsi installation details
+      debug:
+        msg: |
+          ============================================================================
+          open-iscsi Package Installation Details
+          ============================================================================
+          Package: open-iscsi
+          Status: {{ '✅ Installing...' if open_iscsi_install.changed else 'ℹ️  Already installed' }}
+          Changed: {{ open_iscsi_install.changed | default(false) }}
+          ============================================================================
+
     - name: Configure open-iscsi package
       command: dpkg --configure -a
       register: open_iscsi_configure
       changed_when: open_iscsi_configure.rc == 0
       failed_when: false
+      when: open_iscsi_install.changed | default(false) | bool
+
+    - name: Display open-iscsi configuration result
+      debug:
+        msg: |
+          ============================================================================
+          open-iscsi Package Configuration Result
+          ============================================================================
+          Exit code: {{ open_iscsi_configure.rc | default('N/A') }}
+          Status: {{ '✅ Configured' if open_iscsi_configure.rc | default(1) == 0 else '⚠️  Configuration may have issues' }}
+          {% if open_iscsi_configure.stdout is defined and open_iscsi_configure.stdout | length > 0 %}
+          Configuration output: {{ open_iscsi_configure.stdout[:300] }}
+          {% endif %}
+          ============================================================================
       when: open_iscsi_install.changed | default(false) | bool
 
     - name: Display open-iscsi installation status
@@ -545,11 +782,36 @@
         state: present
       register: chrony_install
 
+    - name: Display chrony installation details
+      debug:
+        msg: |
+          ============================================================================
+          chrony Package Installation Details
+          ============================================================================
+          Package: chrony
+          Status: {{ '✅ Installing...' if chrony_install.changed else 'ℹ️  Already installed' }}
+          Changed: {{ chrony_install.changed | default(false) }}
+          ============================================================================
+
     - name: Configure chrony package
       command: dpkg --configure -a
       register: chrony_configure
       changed_when: chrony_configure.rc == 0
       failed_when: false
+      when: chrony_install.changed | default(false) | bool
+
+    - name: Display chrony configuration result
+      debug:
+        msg: |
+          ============================================================================
+          chrony Package Configuration Result
+          ============================================================================
+          Exit code: {{ chrony_configure.rc | default('N/A') }}
+          Status: {{ '✅ Configured' if chrony_configure.rc | default(1) == 0 else '⚠️  Configuration may have issues' }}
+          {% if chrony_configure.stdout is defined and chrony_configure.stdout | length > 0 %}
+          Configuration output: {{ chrony_configure.stdout[:300] }}
+          {% endif %}
+          ============================================================================
       when: chrony_install.changed | default(false) | bool
 
     - name: Display chrony installation status
@@ -561,6 +823,25 @@
       register: dpkg_final_configure
       changed_when: dpkg_final_configure.rc == 0
       failed_when: false
+
+    - name: Display final package configuration details
+      debug:
+        msg: |
+          ============================================================================
+          Final Package Configuration Check
+          ============================================================================
+          Command: dpkg --configure -a
+          Exit code: {{ dpkg_final_configure.rc | default('N/A') }}
+          Status: {{ '✅ All packages configured' if dpkg_final_configure.rc | default(1) == 0 else '⚠️  Some packages may need attention' }}
+          {% if dpkg_final_configure.stdout is defined and dpkg_final_configure.stdout | length > 0 %}
+          Configuration output (first 1000 chars):
+          {{ dpkg_final_configure.stdout[:1000] }}
+          {% endif %}
+          {% if dpkg_final_configure.stderr is defined and dpkg_final_configure.stderr | length > 0 %}
+          Configuration errors/warnings:
+          {{ dpkg_final_configure.stderr[:500] }}
+          {% endif %}
+          ============================================================================
 
     - name: Display all packages installation summary
       debug:
@@ -730,17 +1011,67 @@
       changed_when: false
       failed_when: false
 
+    - name: Display Debian kernel detection results
+      debug:
+        msg: |
+          ============================================================================
+          Debian Kernel Detection
+          ============================================================================
+          Debian kernels found: {{ debian_kernels.stdout_lines | length }}
+          {% if debian_kernels.stdout_lines | length > 0 %}
+          Kernels to remove:
+          {% for kernel in debian_kernels.stdout_lines %}
+          - {{ kernel }}
+          {% endfor %}
+          Also removing: linux-image-amd64 (if present)
+          {% else %}
+          No Debian kernels found - nothing to remove
+          {% endif %}
+          ============================================================================
+
     - name: Remove Debian kernels
       apt:
         name: "{{ debian_kernels.stdout_lines + ['linux-image-amd64'] }}"
         state: absent
+      register: kernel_removal
       when: debian_kernels.stdout_lines | length > 0
       failed_when: false
 
+    - name: Display kernel removal result
+      debug:
+        msg: |
+          ============================================================================
+          Debian Kernel Removal Result
+          ============================================================================
+          Status: {{ '✅ Removed' if kernel_removal.changed | default(false) else 'ℹ️  No kernels removed' }}
+          Changed: {{ kernel_removal.changed | default(false) }}
+          {% if kernel_removal.changed %}
+          Removed kernels successfully
+          {% endif %}
+          ============================================================================
+      when: debian_kernels.stdout_lines | length > 0
+
     - name: Update GRUB after kernel removal
       command: update-grub
+      register: grub_update
       changed_when: false
       failed_when: false
+      when: debian_kernels.stdout_lines | length > 0
+
+    - name: Display GRUB update result
+      debug:
+        msg: |
+          ============================================================================
+          GRUB Update Result
+          ============================================================================
+          Command: update-grub
+          Exit code: {{ grub_update.rc | default('N/A') }}
+          Status: {{ '✅ Updated' if grub_update.rc | default(1) == 0 else '⚠️  GRUB update may have issues' }}
+          {% if grub_update.stdout is defined and grub_update.stdout | length > 0 %}
+          GRUB output (first 500 chars):
+          {{ grub_update.stdout[:500] }}
+          {% endif %}
+          ============================================================================
       when: debian_kernels.stdout_lines | length > 0
 
 # ============================================================================
