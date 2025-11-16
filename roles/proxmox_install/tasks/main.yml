@@ -529,12 +529,37 @@
         echo: yes
       register: reboot_prompt
 
-    - name: Reboot system
+    - name: Reboot system (using reboot module)
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
-      when: reboot_prompt.user_input | default('no') | lower == 'yes'
+      when:
+        - reboot_prompt.user_input | default('no') | lower == 'yes'
+        - inventory_hostname != 'localhost'
       ignore_errors: yes
+
+    - name: Reboot system (localhost - using command)
+      command: shutdown -r +1 "Rebooting after Proxmox VE installation"
+      async: 1
+      poll: 0
+      when:
+        - reboot_prompt.user_input | default('no') | lower == 'yes'
+        - inventory_hostname == 'localhost'
+      ignore_errors: yes
+
+    - name: Display reboot message for localhost
+      debug:
+        msg: |
+          ============================================================================
+          🔄 System will reboot in 1 minute
+          ============================================================================
+          
+          The system is scheduled to reboot in 1 minute.
+          To cancel: sudo shutdown -c
+          ============================================================================
+      when:
+        - reboot_prompt.user_input | default('no') | lower == 'yes'
+        - inventory_hostname == 'localhost'
 
     - name: Remind to reboot manually
       debug:
