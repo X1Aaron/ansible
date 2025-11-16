@@ -154,8 +154,16 @@
     - name: Extract existing hostname entry line (if exists) to preserve aliases
       set_fact:
         hosts_file_text: "{{ hosts_file.content | b64decode | default('') }}"
-        hostname_entry_line: "{{ hosts_file_text | regex_search('^[^#]*\\s+' + system_hostname.stdout + '(\\s|$)', multiline=True) | default('') }}"
-        hostname_entry_exists: "{{ hostname_entry_line | length > 0 }}"
+      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
+
+    - name: Find hostname entry in /etc/hosts
+      set_fact:
+        hostname_entry_line: "{{ hosts_file_text | default('') | regex_search('^[^#]*\\s+' + system_hostname.stdout + '(\\s|$)', multiline=True) | default('') }}"
+      when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
+
+    - name: Check if hostname entry exists
+      set_fact:
+        hostname_entry_exists: "{{ hostname_entry_line | default('') | length > 0 }}"
       when: needs_fix | default(false) | bool and detected_ip | default('') | length > 0
 
     - name: Extract aliases from existing entry (everything after hostname)
