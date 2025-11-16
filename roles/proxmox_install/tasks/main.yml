@@ -462,6 +462,58 @@
         state: started
       failed_when: false
 
+    - name: Fix AppArmor dhclient profile to allow network operations
+      block:
+        - name: Check if AppArmor is installed
+          command: which apparmor_parser
+          register: apparmor_check
+          changed_when: false
+          failed_when: false
+
+        - name: Check if dhclient AppArmor profile exists
+          stat:
+            path: /etc/apparmor.d/usr.sbin.dhclient
+          register: dhclient_profile
+          when: apparmor_check.rc == 0
+
+        - name: Fix dhclient AppArmor profile
+          lineinfile:
+            path: /etc/apparmor.d/usr.sbin.dhclient
+            regexp: '^\s*network\s+unix\s+create,'
+            line: '  network unix create,'
+            state: present
+            insertafter: '^\s*network\s+inet\s+'
+            backup: yes
+          when:
+            - apparmor_check.rc == 0
+            - dhclient_profile.stat.exists
+          ignore_errors: yes
+
+        - name: Reload AppArmor profiles
+          command: apparmor_parser -r /etc/apparmor.d/usr.sbin.dhclient
+          when:
+            - apparmor_check.rc == 0
+            - dhclient_profile.stat.exists
+          ignore_errors: yes
+          failed_when: false
+
+        - name: Display AppArmor fix status
+          debug:
+            msg: |
+              ============================================================================
+              AppArmor dhclient Profile Fix
+              ============================================================================
+              {% if apparmor_check.rc == 0 %}
+              {% if dhclient_profile.stat.exists %}
+              ✅ Fixed AppArmor dhclient profile to allow network operations
+              {% else %}
+              ℹ️  dhclient AppArmor profile not found (may not be needed)
+              {% endif %}
+              {% else %}
+              ℹ️  AppArmor not installed (no fix needed)
+              {% endif %}
+              ============================================================================
+
     - name: Remove os-prober
       apt:
         name: os-prober
