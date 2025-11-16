@@ -462,29 +462,69 @@
         state: started
       failed_when: false
 
-    - name: Fix AppArmor dhclient profile to allow network operations
+    - name: Fix AppArmor dhclient profile to allow network operations (Hetzner servers)
       block:
+        - name: Detect if server is on Hetzner
+          block:
+            - name: Check apt sources for Hetzner mirrors
+              shell: |
+                grep -r "hetzner\|archive.ubuntu.com\|mirror.hetzner" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -1 || echo ""
+              register: hetzner_mirror_check
+              changed_when: false
+              failed_when: false
+
+            - name: Check hostname for Hetzner indicators
+              shell: |
+                hostname -f 2>/dev/null | grep -i "hetzner\|hz" || echo ""
+              register: hetzner_hostname_check
+              changed_when: false
+              failed_when: false
+
+            - name: Check for Hetzner-specific files/indicators
+              shell: |
+                test -f /etc/hetzner-release 2>/dev/null && echo "hetzner" || \
+                grep -q "Hetzner" /etc/motd 2>/dev/null && echo "hetzner" || \
+                echo ""
+              register: hetzner_file_check
+              changed_when: false
+              failed_when: false
+
+            - name: Set Hetzner detection fact
+              set_fact:
+                is_hetzner: >
+                  {{ (hetzner_mirror_check.stdout | default('') | length > 0) or
+                     (hetzner_hostname_check.stdout | default('') | length > 0) or
+                     (hetzner_file_check.stdout | default('') | length > 0) }}
+
+            - name: Display Hetzner detection result
+              debug:
+                msg: "{{ '✅ Detected Hetzner server - will apply AppArmor fix' if is_hetzner | default(false) | bool else 'ℹ️  Not a Hetzner server - skipping AppArmor fix' }}"
+
         - name: Check if AppArmor is installed
           command: which apparmor_parser
           register: apparmor_check
           changed_when: false
           failed_when: false
+          when: is_hetzner | default(false) | bool
 
         - name: Check if dhclient AppArmor profile exists
           stat:
             path: /etc/apparmor.d/usr.sbin.dhclient
           register: dhclient_profile
-          when: apparmor_check.rc == 0
+          when:
+            - is_hetzner | default(false) | bool
+            - apparmor_check.rc == 0
 
         - name: Fix dhclient AppArmor profile - add unix socket permission
           blockinfile:
             path: /etc/apparmor.d/usr.sbin.dhclient
-            marker: "# {mark} ANSIBLE MANAGED BLOCK - Allow unix socket creation"
+            marker: "# {mark} ANSIBLE MANAGED BLOCK - Allow unix socket creation (Hetzner fix)"
             block: |
               network unix create type=dgram,
             insertafter: '^\s*network\s+inet\s+'
             backup: yes
           when:
+            - is_hetzner | default(false) | bool
             - apparmor_check.rc == 0
             - dhclient_profile.stat.exists
           ignore_errors: yes
@@ -492,6 +532,7 @@
         - name: Reload AppArmor profiles
           command: apparmor_parser -r /etc/apparmor.d/usr.sbin.dhclient
           when:
+            - is_hetzner | default(false) | bool
             - apparmor_check.rc == 0
             - dhclient_profile.stat.exists
           ignore_errors: yes
@@ -501,16 +542,21 @@
           debug:
             msg: |
               ============================================================================
-              AppArmor dhclient Profile Fix
+              AppArmor dhclient Profile Fix (Hetzner)
               ============================================================================
+              {% if is_hetzner | default(false) | bool %}
               {% if apparmor_check.rc == 0 %}
               {% if dhclient_profile.stat.exists %}
               ✅ Fixed AppArmor dhclient profile to allow network operations
+              This prevents boot hangs on Hetzner servers.
               {% else %}
               ℹ️  dhclient AppArmor profile not found (may not be needed)
               {% endif %}
               {% else %}
               ℹ️  AppArmor not installed (no fix needed)
+              {% endif %}
+              {% else %}
+              ℹ️  Not a Hetzner server - AppArmor fix skipped
               {% endif %}
               ============================================================================
 
