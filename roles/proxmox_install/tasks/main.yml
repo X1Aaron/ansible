@@ -546,35 +546,43 @@
         - reboot_prompt.user_input | default('no') | lower != 'yes'
 
 - name: Display installation summary
-  debug:
-    msg: |
-      ============================================================================
-      Proxmox VE Installation {{ 'Complete' if proxmox_version.rc == 0 else 'Ready' }}!
-      ============================================================================
-      {% if proxmox_installed.rc == 0 %}
-      Status: Already installed ({{ proxmox_version.stdout | default('version unknown') }})
-      {% elif proxmox_version.rc == 0 %}
-      Status: Installation completed successfully
-      Version: {{ proxmox_version.stdout | default('version unknown') }}
-      {% else %}
-      Status: Installation in progress or failed
-      {% endif %}
-      
-      Next Steps:
-      
-      {% if proxmox_installed.rc != 0 %}
-      1. Reboot the system (if required)
-         $ sudo reboot
-      {% endif %}
-      
-      2. Access the Web Interface
-         URL: https://{{ inventory_hostname }}:8006
-         Login: root / (your root password)
-      
-      3. Configure Proxmox (use separate playbooks for network, storage, etc.)
-         - Set up storage
-         - Configure network bridges
-         - Create virtual machines/containers
-      
-      Documentation: https://pve.proxmox.com/pve-docs/
-      ============================================================================
+  block:
+    - name: Check Proxmox version for summary
+      command: pveversion
+      register: proxmox_version_summary
+      changed_when: false
+      failed_when: false
+
+    - name: Display installation summary
+      debug:
+        msg: |
+          ============================================================================
+          Proxmox VE Installation {{ 'Complete' if (proxmox_version_summary.rc | default(1) == 0) else 'Ready' }}!
+          ============================================================================
+          {% if proxmox_installed.rc == 0 %}
+          Status: Already installed ({{ proxmox_version_summary.stdout | default('version unknown') }})
+          {% elif proxmox_version_summary.rc | default(1) == 0 %}
+          Status: Installation completed successfully
+          Version: {{ proxmox_version_summary.stdout | default('version unknown') }}
+          {% else %}
+          Status: Installation in progress or failed
+          {% endif %}
+          
+          Next Steps:
+          
+          {% if proxmox_installed.rc != 0 %}
+          1. Reboot the system (if required)
+             $ sudo reboot
+          {% endif %}
+          
+          2. Access the Web Interface
+             URL: https://{{ inventory_hostname }}:8006
+             Login: root / (your root password)
+          
+          3. Configure Proxmox (use separate playbooks for network, storage, etc.)
+             - Set up storage
+             - Configure network bridges
+             - Create virtual machines/containers
+          
+          Documentation: https://pve.proxmox.com/pve-docs/
+          ============================================================================
