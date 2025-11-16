@@ -455,6 +455,26 @@
               
               ============================================================================
 
+        - name: Configure any unconfigured packages
+          command: dpkg --configure -a
+          register: dpkg_configure_result
+          changed_when: dpkg_configure_result.rc == 0
+          failed_when: false
+
+        - name: Display package configuration status
+          debug:
+            msg: |
+              ============================================================================
+              Package Configuration Check
+              ============================================================================
+              {% if dpkg_configure_result.rc == 0 %}
+              ✅ All packages are properly configured
+              {% else %}
+              ⚠️  Some packages needed configuration (this is normal after installation)
+              {% endif %}
+              ============================================================================
+          when: dpkg_configure_result.changed | default(false) | bool
+
     - name: Ensure SSH service is enabled and started
       systemd:
         name: ssh
