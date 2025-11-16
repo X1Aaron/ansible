@@ -406,9 +406,16 @@
             state: present
           register: proxmox_ve_install
 
+        - name: Configure proxmox-ve package
+          command: dpkg --configure -a
+          register: proxmox_ve_configure
+          changed_when: proxmox_ve_configure.rc == 0
+          failed_when: false
+          when: proxmox_ve_install.changed | default(false) | bool
+
         - name: Display proxmox-ve installation status
           debug:
-            msg: "{{ '✅ proxmox-ve installed' if proxmox_ve_install.changed else 'ℹ️  proxmox-ve already installed' }}"
+            msg: "{{ '✅ proxmox-ve installed and configured' if proxmox_ve_install.changed else 'ℹ️  proxmox-ve already installed' }}"
 
         - name: Install postfix package
           apt:
@@ -416,9 +423,16 @@
             state: present
           register: postfix_install
 
+        - name: Configure postfix package
+          command: dpkg --configure -a
+          register: postfix_configure
+          changed_when: postfix_configure.rc == 0
+          failed_when: false
+          when: postfix_install.changed | default(false) | bool
+
         - name: Display postfix installation status
           debug:
-            msg: "{{ '✅ postfix installed' if postfix_install.changed else 'ℹ️  postfix already installed' }}"
+            msg: "{{ '✅ postfix installed and configured' if postfix_install.changed else 'ℹ️  postfix already installed' }}"
 
         - name: Install open-iscsi package
           apt:
@@ -426,9 +440,16 @@
             state: present
           register: open_iscsi_install
 
+        - name: Configure open-iscsi package
+          command: dpkg --configure -a
+          register: open_iscsi_configure
+          changed_when: open_iscsi_configure.rc == 0
+          failed_when: false
+          when: open_iscsi_install.changed | default(false) | bool
+
         - name: Display open-iscsi installation status
           debug:
-            msg: "{{ '✅ open-iscsi installed' if open_iscsi_install.changed else 'ℹ️  open-iscsi already installed' }}"
+            msg: "{{ '✅ open-iscsi installed and configured' if open_iscsi_install.changed else 'ℹ️  open-iscsi already installed' }}"
 
         - name: Install chrony package
           apt:
@@ -436,9 +457,16 @@
             state: present
           register: chrony_install
 
+        - name: Configure chrony package
+          command: dpkg --configure -a
+          register: chrony_configure
+          changed_when: chrony_configure.rc == 0
+          failed_when: false
+          when: chrony_install.changed | default(false) | bool
+
         - name: Display chrony installation status
           debug:
-            msg: "{{ '✅ chrony installed' if chrony_install.changed else 'ℹ️  chrony already installed' }}"
+            msg: "{{ '✅ chrony installed and configured' if chrony_install.changed else 'ℹ️  chrony already installed' }}"
 
         - name: Display all packages installation summary
           debug:
@@ -455,25 +483,25 @@
               
               ============================================================================
 
-        - name: Configure any unconfigured packages
+        - name: Final package configuration check (catch any remaining unconfigured packages)
           command: dpkg --configure -a
-          register: dpkg_configure_result
-          changed_when: dpkg_configure_result.rc == 0
+          register: dpkg_final_configure
+          changed_when: dpkg_final_configure.rc == 0
           failed_when: false
 
-        - name: Display package configuration status
+        - name: Display final package configuration status
           debug:
             msg: |
               ============================================================================
-              Package Configuration Check
+              Final Package Configuration Check
               ============================================================================
-              {% if dpkg_configure_result.rc == 0 %}
+              {% if dpkg_final_configure.rc == 0 %}
               ✅ All packages are properly configured
               {% else %}
-              ⚠️  Some packages needed configuration (this is normal after installation)
+              ⚠️  Some packages needed final configuration (this is normal after installation)
               {% endif %}
               ============================================================================
-          when: dpkg_configure_result.changed | default(false) | bool
+          when: dpkg_final_configure.changed | default(false) | bool
 
     - name: Ensure SSH service is enabled and started
       systemd:
