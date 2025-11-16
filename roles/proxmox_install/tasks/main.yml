@@ -466,21 +466,45 @@
       block:
         - name: Detect if server is on Hetzner
           block:
-            - name: Check apt sources for Hetzner mirrors
+            - name: Get server's public IP address
+              shell: |
+                curl -s --max-time 3 https://api.ipify.org || \
+                curl -s --max-time 3 https://icanhazip.com || \
+                curl -s --max-time 3 https://ifconfig.me || \
+                echo ""
+              register: server_public_ip
+              changed_when: false
+              failed_when: false
+
+            - name: Lookup ASN from IP address (primary method)
+              shell: |
+                if [ -n "{{ server_public_ip.stdout }}" ]; then
+                  curl -s --max-time 5 "https://ip-api.com/json/{{ server_public_ip.stdout }}?fields=asn,org" 2>/dev/null | \
+                  grep -oE '"asn":[0-9]+|"org":"[^"]*"' | \
+                  grep -i "24940\|213230\|Hetzner" || echo ""
+                else
+                  echo ""
+                fi
+              register: hetzner_asn_check
+              changed_when: false
+              failed_when: false
+              when: server_public_ip.stdout | default('') | length > 0
+
+            - name: Check apt sources for Hetzner mirrors (fallback)
               shell: |
                 grep -r "hetzner\|archive.ubuntu.com\|mirror.hetzner" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -1 || echo ""
               register: hetzner_mirror_check
               changed_when: false
               failed_when: false
 
-            - name: Check hostname for Hetzner indicators
+            - name: Check hostname for Hetzner indicators (fallback)
               shell: |
                 hostname -f 2>/dev/null | grep -i "hetzner\|hz" || echo ""
               register: hetzner_hostname_check
               changed_when: false
               failed_when: false
 
-            - name: Check for Hetzner-specific files/indicators
+            - name: Check for Hetzner-specific files/indicators (fallback)
               shell: |
                 test -f /etc/hetzner-release 2>/dev/null && echo "hetzner" || \
                 grep -q "Hetzner" /etc/motd 2>/dev/null && echo "hetzner" || \
@@ -492,7 +516,8 @@
             - name: Set Hetzner detection fact
               set_fact:
                 is_hetzner: >
-                  {{ (hetzner_mirror_check.stdout | default('') | length > 0) or
+                  {{ (hetzner_asn_check.stdout | default('') | length > 0) or
+                     (hetzner_mirror_check.stdout | default('') | length > 0) or
                      (hetzner_hostname_check.stdout | default('') | length > 0) or
                      (hetzner_file_check.stdout | default('') | length > 0) }}
 
