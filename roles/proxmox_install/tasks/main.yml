@@ -398,22 +398,62 @@
       debug:
         msg: "✅ Proxmox kernel installed. Now installing Proxmox VE packages (this may take a while)..."
 
-    - name: Install Proxmox VE packages (this may take 10-30 minutes)
-      apt:
-        name:
-          - proxmox-ve
-          - postfix
-          - open-iscsi
-          - chrony
-        state: present
-      register: proxmox_packages_install
+    - name: Install Proxmox VE packages individually (for progress tracking)
+      block:
+        - name: Install proxmox-ve package
+          apt:
+            name: proxmox-ve
+            state: present
+          register: proxmox_ve_install
 
-    - name: Display installation status
-      debug:
-        msg: |
-          ✅ Proxmox VE packages installation completed!
-          📦 Installed packages: {{ proxmox_packages_install.changed | ternary('New packages installed', 'Packages already up to date') }}
-          💡 To see detailed installation output, run with: ansible-playbook -vvv playbooks/proxmox-install.yml
+        - name: Display proxmox-ve installation status
+          debug:
+            msg: "{{ '✅ proxmox-ve installed' if proxmox_ve_install.changed else 'ℹ️  proxmox-ve already installed' }}"
+
+        - name: Install postfix package
+          apt:
+            name: postfix
+            state: present
+          register: postfix_install
+
+        - name: Display postfix installation status
+          debug:
+            msg: "{{ '✅ postfix installed' if postfix_install.changed else 'ℹ️  postfix already installed' }}"
+
+        - name: Install open-iscsi package
+          apt:
+            name: open-iscsi
+            state: present
+          register: open_iscsi_install
+
+        - name: Display open-iscsi installation status
+          debug:
+            msg: "{{ '✅ open-iscsi installed' if open_iscsi_install.changed else 'ℹ️  open-iscsi already installed' }}"
+
+        - name: Install chrony package
+          apt:
+            name: chrony
+            state: present
+          register: chrony_install
+
+        - name: Display chrony installation status
+          debug:
+            msg: "{{ '✅ chrony installed' if chrony_install.changed else 'ℹ️  chrony already installed' }}"
+
+        - name: Display all packages installation summary
+          debug:
+            msg: |
+              ============================================================================
+              ✅ All Proxmox VE packages installation completed!
+              ============================================================================
+              
+              Package Status:
+              - proxmox-ve: {{ '✅ Installed' if proxmox_ve_install.changed else 'ℹ️  Already installed' }}
+              - postfix: {{ '✅ Installed' if postfix_install.changed else 'ℹ️  Already installed' }}
+              - open-iscsi: {{ '✅ Installed' if open_iscsi_install.changed else 'ℹ️  Already installed' }}
+              - chrony: {{ '✅ Installed' if chrony_install.changed else 'ℹ️  Already installed' }}
+              
+              ============================================================================
 
     - name: Ensure SSH service is enabled and started
       systemd:
