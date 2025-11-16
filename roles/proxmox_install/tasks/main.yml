@@ -372,12 +372,33 @@
     - proxmox_install_packages | default(true)
     - proxmox_installed.rc != 0
   block:
+    - name: Display installation start message
+      debug:
+        msg: |
+          ============================================================================
+          Starting Proxmox VE Installation
+          ============================================================================
+          
+          This will install:
+          - Proxmox kernel (proxmox-default-kernel)
+          - Proxmox VE packages (proxmox-ve, postfix, open-iscsi, chrony)
+          
+          ⏳ This process may take 10-30 minutes depending on your system and network speed.
+          📦 Packages are being downloaded and installed...
+          
+          Progress will be shown below. If output seems stuck, it's still working!
+          ============================================================================
+
     - name: Install Proxmox kernel first
       apt:
         name: proxmox-default-kernel
         state: present
 
-    - name: Install Proxmox VE packages
+    - name: Display kernel installation complete
+      debug:
+        msg: "✅ Proxmox kernel installed. Now installing Proxmox VE packages (this may take a while)..."
+
+    - name: Install Proxmox VE packages (this may take 10-30 minutes)
       apt:
         name:
           - proxmox-ve
@@ -385,6 +406,14 @@
           - open-iscsi
           - chrony
         state: present
+      register: proxmox_packages_install
+
+    - name: Display installation status
+      debug:
+        msg: |
+          ✅ Proxmox VE packages installation completed!
+          📦 Installed packages: {{ proxmox_packages_install.changed | ternary('New packages installed', 'Packages already up to date') }}
+          💡 To see detailed installation output, run with: ansible-playbook -vvv playbooks/proxmox-install.yml
 
     - name: Ensure SSH service is enabled and started
       systemd:
