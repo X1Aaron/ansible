@@ -498,52 +498,63 @@
         msg: "Proxmox VE {{ proxmox_version.stdout }} installed successfully"
       when: proxmox_version.rc == 0
 
-- name: Handle reboot (only if installation was performed)
-  when: 
-    - proxmox_reboot_after_install | default(true)
-    - proxmox_installed.rc != 0
+- name: Handle reboot after installation
+  when: proxmox_reboot_after_install | default(true)
   block:
     - name: Check if reboot required
       stat:
         path: /var/run/reboot-required
       register: reboot_file
+      changed_when: false
 
     - name: Prompt for reboot
       pause:
         prompt: |
           ============================================================================
-          Reboot Required
+          {% if reboot_file.stat.exists %}
+          ⚠️  Reboot Required
           ============================================================================
           
           A reboot is required to complete the Proxmox VE installation.
+          {% else %}
+          🔄 Optional Reboot
+          ============================================================================
+          
+          Proxmox VE installation is complete. While not strictly required,
+          a reboot is recommended to ensure all changes take effect.
+          {% endif %}
           
           Do you want to reboot now? (yes/no)
           ============================================================================
         echo: yes
       register: reboot_prompt
-      when: reboot_file.stat.exists
 
     - name: Reboot system
       reboot:
         msg: "Rebooting after Proxmox VE installation"
         reboot_timeout: 600
-      when:
-        - reboot_file.stat.exists
-        - reboot_prompt.user_input | default('no') | lower == 'yes'
+      when: reboot_prompt.user_input | default('no') | lower == 'yes'
       ignore_errors: yes
 
     - name: Remind to reboot manually
       debug:
         msg: |
           ============================================================================
-          Reboot Required
+          {% if reboot_file.stat.exists %}
+          ⚠️  Reboot Required
           ============================================================================
           
-          Please reboot manually: sudo reboot
+          Please reboot manually to complete the installation:
+          $ sudo reboot
+          {% else %}
+          ℹ️  Reboot Skipped
           ============================================================================
-      when:
-        - reboot_file.stat.exists
-        - reboot_prompt.user_input | default('no') | lower != 'yes'
+          
+          Installation complete. You can reboot later if needed:
+          $ sudo reboot
+          {% endif %}
+          ============================================================================
+      when: reboot_prompt.user_input | default('no') | lower != 'yes'
 
 - name: Display installation summary
   block:
