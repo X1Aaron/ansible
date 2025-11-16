@@ -1,6 +1,11 @@
 ---
 # Proxmox VE Installation Role
-# Optimized for fresh VM installation - fully automated and idempotent
+# Follows official documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie
+# Each step matches the documentation exactly, with individual package installation for debugging
+
+# ============================================================================
+# STEP 1: Verify System Requirements
+# ============================================================================
 
 - name: Detect OS and version
   block:
@@ -27,6 +32,11 @@
   fail:
     msg: "Proxmox VE requires Debian 11, 12, or 13. Detected: {{ ansible_os_family }}"
   when: ansible_os_family != "Debian"
+
+# ============================================================================
+# STEP 2: Ensure Hostname Resolves to Hosts IP Address
+# Documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Ensure_Hostname_Resolves_to_Hosts_IP_Address
+# ============================================================================
 
 - name: Verify and fix hostname resolution to non-loopback IP address
   block:
@@ -206,6 +216,10 @@
         - needs_fix | default(false) | bool
         - detected_ip | default('') | length == 0
 
+# ============================================================================
+# STEP 3: Map Debian version to Proxmox release
+# ============================================================================
+
 - name: Map Debian version to Proxmox release
   set_fact:
     proxmox_release_mapped: >-
@@ -221,6 +235,10 @@
   changed_when: false
   failed_when: false
 
+# ============================================================================
+# STEP 4: Pre-configure packages for non-interactive installation
+# ============================================================================
+
 - name: Pre-configure packages for non-interactive installation
   when: proxmox_installed.rc != 0
   block:
@@ -233,6 +251,10 @@
       loop:
         - { question: 'postfix/main_mailer_type', value: 'Local only', vtype: 'select' }
         - { question: 'postfix/mailname', value: 'localhost', vtype: 'string' }
+
+# ============================================================================
+# STEP 5: Clean up old Proxmox repositories (only if not installed)
+# ============================================================================
 
 - name: Clean up old Proxmox repositories (only if not installed)
   when: proxmox_installed.rc != 0
@@ -258,6 +280,11 @@
         state: absent
       when: existing_repos.files | length > 0
 
+# ============================================================================
+# STEP 6: Update system packages (if enabled and not installed)
+# Documentation: "apt update && apt full-upgrade"
+# ============================================================================
+
 - name: Update system packages (if enabled and not installed)
   when: 
     - proxmox_update_system | default(true)
@@ -270,6 +297,10 @@
         autoremove: yes
         cache_valid_time: 3600
 
+# ============================================================================
+# STEP 7: Install prerequisites (only if not installed)
+# ============================================================================
+
 - name: Install prerequisites (only if not installed)
   when: proxmox_installed.rc != 0
   block:
@@ -280,16 +311,38 @@
         update_cache: yes
         cache_valid_time: 0
 
-    - name: Install other prerequisites
+    - name: Install curl (required for GPG key download)
       apt:
-        name:
-          - curl
-          - wget
-          - gnupg
-          - ca-certificates
+        name: curl
         state: present
         update_cache: yes
         cache_valid_time: 0
+
+    - name: Install wget (required for GPG key download)
+      apt:
+        name: wget
+        state: present
+        update_cache: yes
+        cache_valid_time: 0
+
+    - name: Install gnupg (required for GPG key verification)
+      apt:
+        name: gnupg
+        state: present
+        update_cache: yes
+        cache_valid_time: 0
+
+    - name: Install ca-certificates (required for HTTPS)
+      apt:
+        name: ca-certificates
+        state: present
+        update_cache: yes
+        cache_valid_time: 0
+
+# ============================================================================
+# STEP 8: Add Proxmox VE Repository
+# Documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Add_Proxmox_VE_Repository
+# ============================================================================
 
 - name: Setup Proxmox repository (only if not installed)
   when: proxmox_installed.rc != 0
@@ -367,7 +420,53 @@
           Run: apt update && apt-cache search proxmox-ve
       when: proxmox_available.rc != 0 or proxmox_available.stdout_lines | length == 0
 
-- name: Install Proxmox VE (only if not installed)
+# ============================================================================
+# STEP 9: Install the Proxmox VE Kernel
+# Documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Install_the_Proxmox_VE_Kernel
+# ============================================================================
+
+- name: Install Proxmox VE Kernel (only if not installed)
+  when: 
+    - proxmox_install_packages | default(true)
+    - proxmox_installed.rc != 0
+  block:
+    - name: Display kernel installation start
+      debug:
+        msg: |
+          ============================================================================
+          Installing Proxmox VE Kernel
+          ============================================================================
+          
+          Installing: proxmox-default-kernel
+          
+          This is required before installing Proxmox VE packages.
+          ============================================================================
+
+    - name: Install Proxmox kernel
+      apt:
+        name: proxmox-default-kernel
+        state: present
+      register: kernel_install
+
+    - name: Configure kernel package
+      command: dpkg --configure -a
+      register: kernel_configure
+      changed_when: kernel_configure.rc == 0
+      failed_when: false
+      when: kernel_install.changed | default(false) | bool
+
+    - name: Display kernel installation status
+      debug:
+        msg: "{{ '✅ Proxmox kernel installed and configured' if kernel_install.changed else 'ℹ️  Proxmox kernel already installed' }}"
+
+# ============================================================================
+# STEP 10: Install the Proxmox VE Packages
+# Documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Install_the_Proxmox_VE_Packages
+# Documentation says: "apt install proxmox-ve postfix open-iscsi chrony"
+# We install each package separately to identify failures
+# ============================================================================
+
+- name: Install Proxmox VE Packages (only if not installed)
   when: 
     - proxmox_install_packages | default(true)
     - proxmox_installed.rc != 0
@@ -376,269 +475,255 @@
       debug:
         msg: |
           ============================================================================
-          Starting Proxmox VE Installation
+          Installing Proxmox VE Packages
           ============================================================================
           
-          This will install:
-          - Proxmox kernel (proxmox-default-kernel)
-          - Proxmox VE packages (proxmox-ve, postfix, open-iscsi, chrony)
+          Installing packages individually:
+          - proxmox-ve
+          - postfix
+          - open-iscsi
+          - chrony
           
           ⏳ This process may take 10-30 minutes depending on your system and network speed.
-          📦 Packages are being downloaded and installed...
-          
-          Progress will be shown below. If output seems stuck, it's still working!
+          📦 Each package will be installed and configured separately for debugging.
           ============================================================================
 
-    - name: Install Proxmox kernel first
+    - name: Install proxmox-ve package
       apt:
-        name: proxmox-default-kernel
+        name: proxmox-ve
         state: present
+      register: proxmox_ve_install
 
-    - name: Display kernel installation complete
+    - name: Configure proxmox-ve package
+      command: dpkg --configure -a
+      register: proxmox_ve_configure
+      changed_when: proxmox_ve_configure.rc == 0
+      failed_when: false
+      when: proxmox_ve_install.changed | default(false) | bool
+
+    - name: Display proxmox-ve installation status
       debug:
-        msg: "✅ Proxmox kernel installed. Now installing Proxmox VE packages (this may take a while)..."
+        msg: "{{ '✅ proxmox-ve installed and configured' if proxmox_ve_install.changed else 'ℹ️  proxmox-ve already installed' }}"
 
-    - name: Install Proxmox VE packages individually (for progress tracking)
-      block:
-        - name: Install proxmox-ve package
-          apt:
-            name: proxmox-ve
-            state: present
-          register: proxmox_ve_install
+    - name: Install postfix package
+      apt:
+        name: postfix
+        state: present
+      register: postfix_install
 
-        - name: Configure proxmox-ve package
-          command: dpkg --configure -a
-          register: proxmox_ve_configure
-          changed_when: proxmox_ve_configure.rc == 0
-          failed_when: false
-          when: proxmox_ve_install.changed | default(false) | bool
+    - name: Configure postfix package
+      command: dpkg --configure -a
+      register: postfix_configure
+      changed_when: postfix_configure.rc == 0
+      failed_when: false
+      when: postfix_install.changed | default(false) | bool
 
-        - name: Display proxmox-ve installation status
-          debug:
-            msg: "{{ '✅ proxmox-ve installed and configured' if proxmox_ve_install.changed else 'ℹ️  proxmox-ve already installed' }}"
+    - name: Display postfix installation status
+      debug:
+        msg: "{{ '✅ postfix installed and configured' if postfix_install.changed else 'ℹ️  postfix already installed' }}"
 
-        - name: Install postfix package
-          apt:
-            name: postfix
-            state: present
-          register: postfix_install
+    - name: Install open-iscsi package
+      apt:
+        name: open-iscsi
+        state: present
+      register: open_iscsi_install
 
-        - name: Configure postfix package
-          command: dpkg --configure -a
-          register: postfix_configure
-          changed_when: postfix_configure.rc == 0
-          failed_when: false
-          when: postfix_install.changed | default(false) | bool
+    - name: Configure open-iscsi package
+      command: dpkg --configure -a
+      register: open_iscsi_configure
+      changed_when: open_iscsi_configure.rc == 0
+      failed_when: false
+      when: open_iscsi_install.changed | default(false) | bool
 
-        - name: Display postfix installation status
-          debug:
-            msg: "{{ '✅ postfix installed and configured' if postfix_install.changed else 'ℹ️  postfix already installed' }}"
+    - name: Display open-iscsi installation status
+      debug:
+        msg: "{{ '✅ open-iscsi installed and configured' if open_iscsi_install.changed else 'ℹ️  open-iscsi already installed' }}"
 
-        - name: Install open-iscsi package
-          apt:
-            name: open-iscsi
-            state: present
-          register: open_iscsi_install
+    - name: Install chrony package
+      apt:
+        name: chrony
+        state: present
+      register: chrony_install
 
-        - name: Configure open-iscsi package
-          command: dpkg --configure -a
-          register: open_iscsi_configure
-          changed_when: open_iscsi_configure.rc == 0
-          failed_when: false
-          when: open_iscsi_install.changed | default(false) | bool
+    - name: Configure chrony package
+      command: dpkg --configure -a
+      register: chrony_configure
+      changed_when: chrony_configure.rc == 0
+      failed_when: false
+      when: chrony_install.changed | default(false) | bool
 
-        - name: Display open-iscsi installation status
-          debug:
-            msg: "{{ '✅ open-iscsi installed and configured' if open_iscsi_install.changed else 'ℹ️  open-iscsi already installed' }}"
+    - name: Display chrony installation status
+      debug:
+        msg: "{{ '✅ chrony installed and configured' if chrony_install.changed else 'ℹ️  chrony already installed' }}"
 
-        - name: Install chrony package
-          apt:
-            name: chrony
-            state: present
-          register: chrony_install
-
-        - name: Configure chrony package
-          command: dpkg --configure -a
-          register: chrony_configure
-          changed_when: chrony_configure.rc == 0
-          failed_when: false
-          when: chrony_install.changed | default(false) | bool
-
-        - name: Display chrony installation status
-          debug:
-            msg: "{{ '✅ chrony installed and configured' if chrony_install.changed else 'ℹ️  chrony already installed' }}"
-
-        - name: Display all packages installation summary
-          debug:
-            msg: |
-              ============================================================================
-              ✅ All Proxmox VE packages installation completed!
-              ============================================================================
-              
-              Package Status:
-              - proxmox-ve: {{ '✅ Installed' if proxmox_ve_install.changed else 'ℹ️  Already installed' }}
-              - postfix: {{ '✅ Installed' if postfix_install.changed else 'ℹ️  Already installed' }}
-              - open-iscsi: {{ '✅ Installed' if open_iscsi_install.changed else 'ℹ️  Already installed' }}
-              - chrony: {{ '✅ Installed' if chrony_install.changed else 'ℹ️  Already installed' }}
-              
-              ============================================================================
-
-        - name: Final package configuration check (catch any remaining unconfigured packages)
-          command: dpkg --configure -a
-          register: dpkg_final_configure
-          changed_when: dpkg_final_configure.rc == 0
-          failed_when: false
-
-        - name: Display final package configuration status
-          debug:
-            msg: |
-              ============================================================================
-              Final Package Configuration Check
-              ============================================================================
-              {% if dpkg_final_configure.rc == 0 %}
-              ✅ All packages are properly configured
-              {% else %}
-              ⚠️  Some packages needed final configuration (this is normal after installation)
-              {% endif %}
-              ============================================================================
-          when: dpkg_final_configure.changed | default(false) | bool
-
-    - name: Ensure SSH service is enabled and started
-      systemd:
-        name: ssh
-        enabled: yes
-        state: started
+    - name: Final package configuration check (catch any remaining unconfigured packages)
+      command: dpkg --configure -a
+      register: dpkg_final_configure
+      changed_when: dpkg_final_configure.rc == 0
       failed_when: false
 
-    - name: Fix AppArmor dhclient profile to allow network operations (Hetzner servers)
+    - name: Display all packages installation summary
+      debug:
+        msg: |
+          ============================================================================
+          ✅ All Proxmox VE packages installation completed!
+          ============================================================================
+          
+          Package Status:
+          - proxmox-ve: {{ '✅ Installed' if proxmox_ve_install.changed else 'ℹ️  Already installed' }}
+          - postfix: {{ '✅ Installed' if postfix_install.changed else 'ℹ️  Already installed' }}
+          - open-iscsi: {{ '✅ Installed' if open_iscsi_install.changed else 'ℹ️  Already installed' }}
+          - chrony: {{ '✅ Installed' if chrony_install.changed else 'ℹ️  Already installed' }}
+          
+          ============================================================================
+
+# ============================================================================
+# STEP 11: Ensure SSH service is enabled and started
+# ============================================================================
+
+- name: Ensure SSH service is enabled and started
+  systemd:
+    name: ssh
+    enabled: yes
+    state: started
+  failed_when: false
+
+# ============================================================================
+# STEP 12: Fix AppArmor dhclient profile (Hetzner servers only)
+# ============================================================================
+
+- name: Fix AppArmor dhclient profile to allow network operations (Hetzner servers)
+  block:
+    - name: Detect if server is on Hetzner
       block:
-        - name: Detect if server is on Hetzner
-          block:
-            - name: Get server's public IP address
-              shell: |
-                curl -s --max-time 3 https://api.ipify.org || \
-                curl -s --max-time 3 https://icanhazip.com || \
-                curl -s --max-time 3 https://ifconfig.me || \
-                echo ""
-              register: server_public_ip
-              changed_when: false
-              failed_when: false
-
-            - name: Lookup ASN from IP address (primary method)
-              shell: |
-                if [ -n "{{ server_public_ip.stdout }}" ]; then
-                  curl -s --max-time 5 "https://ip-api.com/json/{{ server_public_ip.stdout }}?fields=asn,org" 2>/dev/null | \
-                  grep -oE '"asn":[0-9]+|"org":"[^"]*"' | \
-                  grep -i "24940\|213230\|Hetzner" || echo ""
-                else
-                  echo ""
-                fi
-              register: hetzner_asn_check
-              changed_when: false
-              failed_when: false
-              when: server_public_ip.stdout | default('') | length > 0
-
-            - name: Check apt sources for Hetzner mirrors (fallback)
-              shell: |
-                grep -r "hetzner\|archive.ubuntu.com\|mirror.hetzner" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -1 || echo ""
-              register: hetzner_mirror_check
-              changed_when: false
-              failed_when: false
-
-            - name: Check hostname for Hetzner indicators (fallback)
-              shell: |
-                hostname -f 2>/dev/null | grep -i "hetzner\|hz" || echo ""
-              register: hetzner_hostname_check
-              changed_when: false
-              failed_when: false
-
-            - name: Check for Hetzner-specific files/indicators (fallback)
-              shell: |
-                test -f /etc/hetzner-release 2>/dev/null && echo "hetzner" || \
-                grep -q "Hetzner" /etc/motd 2>/dev/null && echo "hetzner" || \
-                echo ""
-              register: hetzner_file_check
-              changed_when: false
-              failed_when: false
-
-            - name: Set Hetzner detection fact
-              set_fact:
-                is_hetzner: >
-                  {{ (hetzner_asn_check.stdout | default('') | length > 0) or
-                     (hetzner_mirror_check.stdout | default('') | length > 0) or
-                     (hetzner_hostname_check.stdout | default('') | length > 0) or
-                     (hetzner_file_check.stdout | default('') | length > 0) }}
-
-            - name: Display Hetzner detection result
-              debug:
-                msg: "{{ '✅ Detected Hetzner server - will apply AppArmor fix' if is_hetzner | default(false) | bool else 'ℹ️  Not a Hetzner server - skipping AppArmor fix' }}"
-
-        - name: Check if AppArmor is installed
-          command: which apparmor_parser
-          register: apparmor_check
+        - name: Get server's public IP address
+          shell: |
+            curl -s --max-time 3 https://api.ipify.org || \
+            curl -s --max-time 3 https://icanhazip.com || \
+            curl -s --max-time 3 https://ifconfig.me || \
+            echo ""
+          register: server_public_ip
           changed_when: false
           failed_when: false
-          when: is_hetzner | default(false) | bool
 
-        - name: Check if dhclient AppArmor profile exists
-          stat:
-            path: /etc/apparmor.d/usr.sbin.dhclient
-          register: dhclient_profile
-          when:
-            - is_hetzner | default(false) | bool
-            - apparmor_check.rc == 0
+        - name: Lookup ASN from IP address (primary method)
+          shell: |
+            if [ -n "{{ server_public_ip.stdout }}" ]; then
+              curl -s --max-time 5 "https://ip-api.com/json/{{ server_public_ip.stdout }}?fields=asn,org" 2>/dev/null | \
+              grep -oE '"asn":[0-9]+|"org":"[^"]*"' | \
+              grep -i "24940\|213230\|Hetzner" || echo ""
+            else
+              echo ""
+            fi
+          register: hetzner_asn_check
+          changed_when: false
+          failed_when: false
+          when: server_public_ip.stdout | default('') | length > 0
 
-        - name: Fix dhclient AppArmor profile - add unix socket permission
-          blockinfile:
-            path: /etc/apparmor.d/usr.sbin.dhclient
-            marker: "# {mark} ANSIBLE MANAGED BLOCK - Allow unix socket creation (Hetzner fix)"
-            block: |
-              network unix create type=dgram,
-            insertafter: '^\s*network\s+inet\s+'
-            backup: yes
-          when:
-            - is_hetzner | default(false) | bool
-            - apparmor_check.rc == 0
-            - dhclient_profile.stat.exists
-          ignore_errors: yes
-
-        - name: Reload AppArmor profiles
-          command: apparmor_parser -r /etc/apparmor.d/usr.sbin.dhclient
-          when:
-            - is_hetzner | default(false) | bool
-            - apparmor_check.rc == 0
-            - dhclient_profile.stat.exists
-          ignore_errors: yes
+        - name: Check apt sources for Hetzner mirrors (fallback)
+          shell: |
+            grep -r "hetzner\|archive.ubuntu.com\|mirror.hetzner" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -1 || echo ""
+          register: hetzner_mirror_check
+          changed_when: false
           failed_when: false
 
-        - name: Display AppArmor fix status
-          debug:
-            msg: |
-              ============================================================================
-              AppArmor dhclient Profile Fix (Hetzner)
-              ============================================================================
-              {% if is_hetzner | default(false) | bool %}
-              {% if apparmor_check.rc == 0 %}
-              {% if dhclient_profile.stat.exists %}
-              ✅ Fixed AppArmor dhclient profile to allow network operations
-              This prevents boot hangs on Hetzner servers.
-              {% else %}
-              ℹ️  dhclient AppArmor profile not found (may not be needed)
-              {% endif %}
-              {% else %}
-              ℹ️  AppArmor not installed (no fix needed)
-              {% endif %}
-              {% else %}
-              ℹ️  Not a Hetzner server - AppArmor fix skipped
-              {% endif %}
-              ============================================================================
+        - name: Check hostname for Hetzner indicators (fallback)
+          shell: |
+            hostname -f 2>/dev/null | grep -i "hetzner\|hz" || echo ""
+          register: hetzner_hostname_check
+          changed_when: false
+          failed_when: false
 
-    - name: Remove os-prober
-      apt:
-        name: os-prober
-        state: absent
+        - name: Check for Hetzner-specific files/indicators (fallback)
+          shell: |
+            test -f /etc/hetzner-release 2>/dev/null && echo "hetzner" || \
+            grep -q "Hetzner" /etc/motd 2>/dev/null && echo "hetzner" || \
+            echo ""
+          register: hetzner_file_check
+          changed_when: false
+          failed_when: false
+
+        - name: Set Hetzner detection fact
+          set_fact:
+            is_hetzner: >
+              {{ (hetzner_asn_check.stdout | default('') | length > 0) or
+                 (hetzner_mirror_check.stdout | default('') | length > 0) or
+                 (hetzner_hostname_check.stdout | default('') | length > 0) or
+                 (hetzner_file_check.stdout | default('') | length > 0) }}
+
+        - name: Display Hetzner detection result
+          debug:
+            msg: "{{ '✅ Detected Hetzner server - will apply AppArmor fix' if is_hetzner | default(false) | bool else 'ℹ️  Not a Hetzner server - skipping AppArmor fix' }}"
+
+    - name: Check if AppArmor is installed
+      command: which apparmor_parser
+      register: apparmor_check
+      changed_when: false
+      failed_when: false
+      when: is_hetzner | default(false) | bool
+
+    - name: Check if dhclient AppArmor profile exists
+      stat:
+        path: /etc/apparmor.d/usr.sbin.dhclient
+      register: dhclient_profile
+      when:
+        - is_hetzner | default(false) | bool
+        - apparmor_check.rc == 0
+
+    - name: Fix dhclient AppArmor profile - add unix socket permission
+      blockinfile:
+        path: /etc/apparmor.d/usr.sbin.dhclient
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Allow unix socket creation (Hetzner fix)"
+        block: |
+          network unix create type=dgram,
+        insertafter: '^\s*network\s+inet\s+'
+        backup: yes
+      when:
+        - is_hetzner | default(false) | bool
+        - apparmor_check.rc == 0
+        - dhclient_profile.stat.exists
+      ignore_errors: yes
+
+    - name: Reload AppArmor profiles
+      command: apparmor_parser -r /etc/apparmor.d/usr.sbin.dhclient
+      when:
+        - is_hetzner | default(false) | bool
+        - apparmor_check.rc == 0
+        - dhclient_profile.stat.exists
+      ignore_errors: yes
       failed_when: false
 
+    - name: Display AppArmor fix status
+      debug:
+        msg: |
+          ============================================================================
+          AppArmor dhclient Profile Fix (Hetzner)
+          ============================================================================
+          {% if is_hetzner | default(false) | bool %}
+          {% if apparmor_check.rc == 0 %}
+          {% if dhclient_profile.stat.exists %}
+          ✅ Fixed AppArmor dhclient profile to allow network operations
+          This prevents boot hangs on Hetzner servers.
+          {% else %}
+          ℹ️  dhclient AppArmor profile not found (may not be needed)
+          {% endif %}
+          {% else %}
+          ℹ️  AppArmor not installed (no fix needed)
+          {% endif %}
+          {% else %}
+          ℹ️  Not a Hetzner server - AppArmor fix skipped
+          {% endif %}
+          ============================================================================
+
+# ============================================================================
+# STEP 13: Remove the Debian Kernel
+# Documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Remove_the_Debian_Kernel
+# Documentation says: "apt remove linux-image-amd64 'linux-image-6.12*'"
+# ============================================================================
+
+- name: Remove the Debian Kernel (only if not installed)
+  when: proxmox_installed.rc != 0
+  block:
     - name: Get installed Debian kernels
       shell: dpkg -l | grep -E '^ii.*linux-image-(amd64|6\.12)' | awk '{print $2}' || true
       register: debian_kernels
@@ -658,16 +743,36 @@
       failed_when: false
       when: debian_kernels.stdout_lines | length > 0
 
-    - name: Verify installation
-      command: pveversion
-      register: proxmox_version
-      changed_when: false
-      failed_when: false
+# ============================================================================
+# STEP 14: Remove the os-prober Package
+# Documentation: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Remove_the_os-prober_Package
+# Documentation says: "apt remove os-prober"
+# ============================================================================
 
-    - name: Display Proxmox version
-      debug:
-        msg: "Proxmox VE {{ proxmox_version.stdout }} installed successfully"
-      when: proxmox_version.rc == 0
+- name: Remove os-prober package
+  apt:
+    name: os-prober
+    state: absent
+  failed_when: false
+
+# ============================================================================
+# STEP 15: Verify installation
+# ============================================================================
+
+- name: Verify installation
+  command: pveversion
+  register: proxmox_version
+  changed_when: false
+  failed_when: false
+
+- name: Display Proxmox version
+  debug:
+    msg: "Proxmox VE {{ proxmox_version.stdout }} installed successfully"
+  when: proxmox_version.rc == 0
+
+# ============================================================================
+# STEP 16: Handle reboot after installation
+# ============================================================================
 
 - name: Handle reboot after installation
   when: proxmox_reboot_after_install | default(true)
@@ -751,6 +856,10 @@
           {% endif %}
           ============================================================================
       when: reboot_prompt.user_input | default('no') | lower != 'yes'
+
+# ============================================================================
+# STEP 17: Display installation summary
+# ============================================================================
 
 - name: Display installation summary
   block:
